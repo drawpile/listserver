@@ -1,0 +1,9 @@
+Compatibility notes:
+
+Drawpile clients <2.0
+
+ * Old style protocol version number (`x.y`, new style is `ns:x.y.z`)
+ * Does not set user agent
+ * Fixed refresh interval of 5 minutes
+ * Login protocol is different
+
