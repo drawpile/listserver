@@ -56,7 +56,7 @@ type SessionListResponse struct {
 
 func (r SessionListResponse) WriteResponse(w http.ResponseWriter) {
 	if len(r.jsonpCallback) == 0 || !validation.IsJsFunctionName(r.jsonpCallback) {
-		writeJsonResponse(w, r, http.StatusOK)
+		writeJsonResponse(w, r.sessions, http.StatusOK)
 	} else {
         w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
