@@ -14,6 +14,6 @@ func StartServer(cfg *config, db *sql.DB) {
 	mux.HandleApiEndpoint("/sessions/", SessionListEndpoint)
 
 	log.Println("Starting list server at", cfg.Listen)
-	http.ListenAndServe(cfg.Listen, mux)
+	log.Fatal(http.ListenAndServe(cfg.Listen, mux))
 }
 

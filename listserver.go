@@ -10,7 +10,7 @@ import (
 func main() {
 	// Command line arguments (can be set in configuration file as well)
 	cfgFile := flag.String("c", "", "configuration file")
-	listenAddr := flag.String("l", "localhost:8080", "listening address")
+	listenAddr := flag.String("l", "", "listening address")
 	dbName := flag.String("d", "", "database URL")
 
 	flag.Parse()
