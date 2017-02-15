@@ -36,7 +36,7 @@ func RootEndpoint(ctx *apiContext) apiResponse {
 	}
 
 	return apiRootResponse{
-		ApiName: "drawpile-listing",
+		ApiName: "drawpile-session-list",
 		Version: "1.2",
 		Name: ctx.cfg.Name,
 		Description: ctx.cfg.Description,
