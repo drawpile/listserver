@@ -1,6 +1,9 @@
 package main
 
-import "github.com/BurntSushi/toml"
+import (
+	"github.com/BurntSushi/toml"
+	"strings"
+)
 
 type config struct {
 	Listen string
@@ -9,6 +12,7 @@ type config struct {
 	Description string
 	Favicon string
 	Welcome string
+	NsfmWords []string
 	AllowWellKnownPorts bool
 	ProtocolWhitelist []string
 	MaxSessionsPerHost int
@@ -26,6 +30,16 @@ func (c *config) IsTrustedHost(host string) bool {
 	return false
 }
 
+func (c *config) ContainsNsfmWords(str string) bool {
+	str = strings.ToUpper(str)
+	for _, s := range c.NsfmWords {
+		if strings.Contains(str, s) {
+			return true
+		}
+	}
+	return false
+}
+
 func defaultConfig() *config {
 	return &config{
 		Listen: "localhost:8080",
@@ -34,6 +48,7 @@ func defaultConfig() *config {
 		Description: "Test server",
 		Favicon: "",
 		Welcome: "",
+		NsfmWords: []string{"18+", "NSFW", "NSFM"},
 		AllowWellKnownPorts: false,
 		ProtocolWhitelist: []string{},
 		MaxSessionsPerHost: 3,
@@ -49,6 +64,12 @@ func readConfigFile(path string) (*config, error) {
 	if _, err := toml.DecodeFile(path, cfg); err != nil {
 		return nil, err
 	}
+
+	// Normalizations
+	for i, s := range cfg.NsfmWords {
+		cfg.NsfmWords[i] = strings.ToUpper(s)
+	}
+
 	return cfg, nil
 }
 

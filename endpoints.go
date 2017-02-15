@@ -145,6 +145,8 @@ func postNewSession(ctx *apiContext) apiResponse {
 		info.Port = 27750
 	}
 
+	info.Nsfm = info.Nsfm || ctx.cfg.ContainsNsfmWords(info.Title)
+
 	// Make sure this hasn't been announced yet
 	if isActive, err := db.IsActiveSession(info.Host, info.Id, info.Port, ctx.db); err != nil {
 		return internalServerError()
