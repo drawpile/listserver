@@ -10,15 +10,27 @@ type TestPair struct {
 	valid bool
 }
 
+func lookupIP(host string) net.IP {
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		panic(err)
+	}
+	if len(ips) == 0 {
+		panic("No IPs for " + host)
+	}
+	return ips[0]
+}
+
 func TestHostnameValidation(t *testing.T) {
-	testIp := net.ParseIP("127.0.0.1")
+	testIp := lookupIP("example.com")
 
 	tests := []TestPair{
 		{"", true}, // Empty hostname is OK, we'll use clientIp
-		{"127.0.0.1", true},
+		{"127.0.0.1", false},
 		{"192.168.1.2", false},
-		{"localhost", true},
+		{"localhost", false},
 		{"http://example.com/", false},
+		{"example.com", true},
 	}
 
 	for _, v := range tests {
@@ -27,6 +39,26 @@ func TestHostnameValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestLocalHostnameValidation(t *testing.T) {
+	localIp := net.ParseIP("127.0.0.1")
+
+	tests := []TestPair{
+		{"", false}, // Can't use empty hostname with localhost client IP
+		{"127.0.0.1", true},  // localhost is trusted to use any hostname
+		{"192.168.1.2", true},
+		{"localhost", true},
+		{"example.com", true},
+		{"http://example.com/", false},
+	}
+
+	for _, v := range tests {
+		if (ValidateHostname(v.teststr, localIp) == nil) != v.valid {
+			t.Error("ValidateHostname(", v.teststr, localIp, ") returned", !v.valid)
+		}
+	}
+}
+
 
 func TestSessionValidation(t *testing.T) {
 	tests := []TestPair{
@@ -90,6 +122,21 @@ func TestIsJsFunctionName(t *testing.T) {
 		if IsJsFunctionName(v.teststr) != v.valid {
 			t.Error("IsJsFunctionName(", v.teststr, ") returned", !v.valid)
 		}
+	}
+}
+
+func TestLocalIps(t *testing.T) {
+	ips := localIPs()
+
+	hadLocalhost := false
+	for _, ip := range ips {
+		if ip.String() == "127.0.0.1" {
+			hadLocalhost = true
+			break
+		}
+	}
+	if !hadLocalhost {
+		t.Error("Localhost not found in local IP list")
 	}
 }
 
