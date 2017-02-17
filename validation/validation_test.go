@@ -1,13 +1,13 @@
 package validation
 
 import (
-	"testing"
 	"net"
+	"testing"
 )
 
 type TestPair struct {
 	teststr string
-	valid bool
+	valid   bool
 }
 
 func lookupIP(host string) net.IP {
@@ -44,8 +44,8 @@ func TestLocalHostnameValidation(t *testing.T) {
 	localIp := net.ParseIP("127.0.0.1")
 
 	tests := []TestPair{
-		{"", false}, // Can't use empty hostname with localhost client IP
-		{"127.0.0.1", true},  // localhost is trusted to use any hostname
+		{"", false},         // Can't use empty hostname with localhost client IP
+		{"127.0.0.1", true}, // localhost is trusted to use any hostname
 		{"192.168.1.2", true},
 		{"localhost", true},
 		{"example.com", true},
@@ -58,7 +58,6 @@ func TestLocalHostnameValidation(t *testing.T) {
 		}
 	}
 }
-
 
 func TestSessionValidation(t *testing.T) {
 	tests := []TestPair{
@@ -139,4 +138,3 @@ func TestLocalIps(t *testing.T) {
 		t.Error("Localhost not found in local IP list")
 	}
 }
-

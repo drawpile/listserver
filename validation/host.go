@@ -1,8 +1,8 @@
 package validation
 
 import (
-	"regexp"
 	"net"
+	"regexp"
 )
 
 func ValidateHostname(hostname string, clientIp net.IP) error {
@@ -84,7 +84,7 @@ func localIPs() (ips []net.IP) {
 	}
 
 	for _, iface := range ifaces {
-		if iface.Flags & net.FlagUp == 0 {
+		if iface.Flags&net.FlagUp == 0 {
 			continue
 		}
 
@@ -96,10 +96,10 @@ func localIPs() (ips []net.IP) {
 		for _, addr := range addrs {
 			var ip net.IP
 			switch v := addr.(type) {
-				case *net.IPNet:
-					ip = v.IP
-				case *net.IPAddr:
-					ip = v.IP
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
 			}
 			if ip != nil {
 				ips = append(ips, ip)
@@ -108,4 +108,3 @@ func localIPs() (ips []net.IP) {
 	}
 	return
 }
-

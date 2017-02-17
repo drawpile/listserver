@@ -3,13 +3,13 @@ package ratelimit
 import "time"
 
 const (
-	burstDuration = 10 // seconds
+	burstDuration     = 10 // seconds
 	maxTokensPerBurst = 20
-	penaltyTimeLimit = 10*60 // seconds
+	penaltyTimeLimit  = 10 * 60 // seconds
 )
 
 type Bucket struct {
-	tokens int64
+	tokens      int64
 	lastDrained int64 // unix time
 }
 
@@ -45,7 +45,7 @@ func (b *Bucket) addToken(now int64) bool {
 	b.drain(now)
 	if b.tokens > maxTokensPerBurst {
 		// Penalty tokens: progressively increase until penalty time limit is reached
-		if b.tokens < maxTokensPerBurst * (penaltyTimeLimit / burstDuration) {
+		if b.tokens < maxTokensPerBurst*(penaltyTimeLimit/burstDuration) {
 			b.tokens += b.tokens / 2
 		}
 	}
@@ -53,4 +53,3 @@ func (b *Bucket) addToken(now int64) bool {
 	b.tokens += 1
 	return b.tokens <= maxTokensPerBurst
 }
-

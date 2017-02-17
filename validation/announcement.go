@@ -1,14 +1,14 @@
 package validation
 
 import (
-	"net"
 	"github.com/drawpile/listserver/db"
+	"net"
 )
 
 type AnnouncementValidationRules struct {
-	ClientIP net.IP
+	ClientIP            net.IP
 	AllowWellKnownPorts bool
-	ProtocolWhitelist []string
+	ProtocolWhitelist   []string
 }
 
 func ValidateAnnouncement(session db.SessionInfo, rules AnnouncementValidationRules) error {
@@ -43,10 +43,9 @@ func isValidSessionId(id string) bool {
 		return false
 	}
 	for _, c := range id {
-		if !((c >= 'a' && c<='z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-') {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-') {
 			return false
 		}
 	}
 	return true
 }
-

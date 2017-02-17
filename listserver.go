@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
-	"log"
-	_ "github.com/lib/pq"
 	"github.com/drawpile/listserver/db"
+	_ "github.com/lib/pq"
+	"log"
 )
 
 func main() {
@@ -31,7 +31,7 @@ func main() {
 
 	// Overridable settings
 	if len(*listenAddr) > 0 {
-		cfg.Listen = *listenAddr;
+		cfg.Listen = *listenAddr
 	}
 
 	if len(*dbName) > 0 {
@@ -42,4 +42,3 @@ func main() {
 	db := db.InitDatabase(cfg.Database)
 	StartServer(cfg, db)
 }
-

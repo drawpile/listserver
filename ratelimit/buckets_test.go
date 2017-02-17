@@ -12,30 +12,29 @@ func TestBucket(t *testing.T) {
 	}
 
 	// Fill up the bucket
-	for i := 0; i<maxTokensPerBurst; i+=1 {
-		if(b.addToken(1) == false) {
+	for i := 0; i < maxTokensPerBurst; i += 1 {
+		if b.addToken(1) == false {
 			t.Error("Bucket filled up early!")
 			return
 		}
 	}
 
 	// Next one should overflow
-	if(b.addToken(0) == true) {
+	if b.addToken(0) == true {
 		t.Error("Bucket should have filled up by now!")
 	}
 
 	drainTime := b.DrainTime()
 
 	btest := b
-	if btest.addToken(drainTime-1) {
+	if btest.addToken(drainTime - 1) {
 		t.Error("Bucket drained faster than DrainTime said!")
 		return
 	}
 
 	btest = b
-	if !btest.addToken(drainTime+1) {
+	if !btest.addToken(drainTime + 1) {
 		t.Error("Bucket drained slower than DrainTime said!")
 		return
 	}
 }
-

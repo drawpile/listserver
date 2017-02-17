@@ -2,9 +2,9 @@ package main
 
 import (
 	"database/sql"
-	"net/http"
-	"log"
 	"github.com/drawpile/listserver/ratelimit"
+	"log"
+	"net/http"
 )
 
 func StartServer(cfg *config, db *sql.DB) {
@@ -16,4 +16,3 @@ func StartServer(cfg *config, db *sql.DB) {
 	log.Println("Starting list server at", cfg.Listen)
 	log.Fatal(http.ListenAndServe(cfg.Listen, mux))
 }
-

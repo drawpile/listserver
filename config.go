@@ -6,19 +6,19 @@ import (
 )
 
 type config struct {
-	Listen string
-	Database string
-	Name string
-	Description string
-	Favicon string
-	Welcome string
-	NsfmWords []string
+	Listen              string
+	Database            string
+	Name                string
+	Description         string
+	Favicon             string
+	Welcome             string
+	NsfmWords           []string
 	AllowWellKnownPorts bool
-	ProtocolWhitelist []string
-	MaxSessionsPerHost int
-	TrustedHosts []string
+	ProtocolWhitelist   []string
+	MaxSessionsPerHost  int
+	TrustedHosts        []string
 	RemoteAddressHeader string
-	CheckUserAgent bool
+	CheckUserAgent      bool
 }
 
 func (c *config) IsTrustedHost(host string) bool {
@@ -42,19 +42,19 @@ func (c *config) ContainsNsfmWords(str string) bool {
 
 func defaultConfig() *config {
 	return &config{
-		Listen: "localhost:8080",
-		Database: "",
-		Name: "test",
-		Description: "Test server",
-		Favicon: "",
-		Welcome: "",
-		NsfmWords: []string{"18+", "NSFW", "NSFM"},
+		Listen:              "localhost:8080",
+		Database:            "",
+		Name:                "test",
+		Description:         "Test server",
+		Favicon:             "",
+		Welcome:             "",
+		NsfmWords:           []string{"18+", "NSFW", "NSFM"},
 		AllowWellKnownPorts: false,
-		ProtocolWhitelist: []string{},
-		MaxSessionsPerHost: 3,
-		TrustedHosts: []string{},
+		ProtocolWhitelist:   []string{},
+		MaxSessionsPerHost:  3,
+		TrustedHosts:        []string{},
 		RemoteAddressHeader: "",
-		CheckUserAgent: false,
+		CheckUserAgent:      false,
 	}
 }
 
@@ -72,4 +72,3 @@ func readConfigFile(path string) (*config, error) {
 
 	return cfg, nil
 }
-

@@ -22,5 +22,3 @@ func InitDatabase(dbname string) (db *sql.DB) {
 
 	return
 }
-
-

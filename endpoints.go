@@ -2,25 +2,25 @@ package main
 
 import (
 	"encoding/json"
-	"net/http"
-	"strconv"
-	"strings"
-	"log"
 	"fmt"
 	"github.com/drawpile/listserver/db"
 	"github.com/drawpile/listserver/validation"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
 )
 
 /**
  * API root: info about this server
  */
 type apiRootResponse struct {
-	ApiName string `json:"api_name"`
-	Version string `json:"version"`
-	Name string `json:"name"`
+	ApiName     string `json:"api_name"`
+	Version     string `json:"version"`
+	Name        string `json:"name"`
 	Description string `json:"description"`
-	Favicon string `json:"favicon,omitempty"`
-	Source string `json:"source"`
+	Favicon     string `json:"favicon,omitempty"`
+	Source      string `json:"source"`
 }
 
 func (r apiRootResponse) WriteResponse(w http.ResponseWriter) {
@@ -31,17 +31,17 @@ func RootEndpoint(ctx *apiContext) apiResponse {
 	if len(ctx.path) != 0 {
 		return notFoundResponse()
 	}
-	if(ctx.method != "GET") {
+	if ctx.method != "GET" {
 		return methodNotAllowedResponse{"GET"}
 	}
 
 	return apiRootResponse{
-		ApiName: "drawpile-session-list",
-		Version: "1.2",
-		Name: ctx.cfg.Name,
+		ApiName:     "drawpile-session-list",
+		Version:     "1.2",
+		Name:        ctx.cfg.Name,
 		Description: ctx.cfg.Description,
-		Favicon: ctx.cfg.Favicon,
-		Source: "https://github.com/drawpile/listserver/",
+		Favicon:     ctx.cfg.Favicon,
+		Source:      "https://github.com/drawpile/listserver/",
 	}
 }
 
@@ -50,7 +50,7 @@ func RootEndpoint(ctx *apiContext) apiResponse {
  */
 
 type SessionListResponse struct {
-	sessions []db.SessionInfo
+	sessions      []db.SessionInfo
 	jsonpCallback string
 }
 
@@ -58,7 +58,7 @@ func (r SessionListResponse) WriteResponse(w http.ResponseWriter) {
 	if len(r.jsonpCallback) == 0 || !validation.IsJsFunctionName(r.jsonpCallback) {
 		writeJsonResponse(w, r.sessions, http.StatusOK)
 	} else {
-        w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		content, _ := json.MarshalIndent(r.sessions, "", "  ")
 		fmt.Fprintf(w, "%s(%s);", r.jsonpCallback, content)
@@ -94,8 +94,8 @@ func SessionListEndpoint(ctx *apiContext) apiResponse {
 
 func getSessionList(ctx *apiContext) apiResponse {
 	opts := db.QueryOptions{
-		Title: ctx.query.Get("title"),
-		Nsfm: ctx.query.Get("nsfm") == "true",
+		Title:    ctx.query.Get("title"),
+		Nsfm:     ctx.query.Get("nsfm") == "true",
 		Protocol: ctx.query.Get("protocol"),
 	}
 	list, err := db.QuerySessionList(opts, ctx.db)
@@ -107,14 +107,13 @@ func getSessionList(ctx *apiContext) apiResponse {
 
 type announcementResponse struct {
 	*db.NewSessionInfo
-	Expires int `json:"expires"`
+	Expires int    `json:"expires"`
 	Message string `json:"message,omitempty"`
 }
 
 func (r announcementResponse) WriteResponse(w http.ResponseWriter) {
 	writeJsonResponse(w, r, http.StatusOK)
 }
-
 
 func postNewSession(ctx *apiContext) apiResponse {
 	var info db.SessionInfo
@@ -125,9 +124,9 @@ func postNewSession(ctx *apiContext) apiResponse {
 
 	// Validate
 	rules := validation.AnnouncementValidationRules{
-		ClientIP: ctx.clientIP,
+		ClientIP:            ctx.clientIP,
 		AllowWellKnownPorts: ctx.cfg.AllowWellKnownPorts,
-		ProtocolWhitelist: ctx.cfg.ProtocolWhitelist,
+		ProtocolWhitelist:   ctx.cfg.ProtocolWhitelist,
 	}
 	if err := validation.ValidateAnnouncement(info, rules); err != nil {
 		if _, isValidationError := err.(validation.ValidationError); isValidationError {
@@ -181,7 +180,7 @@ func postNewSession(ctx *apiContext) apiResponse {
 }
 
 type refreshResponse struct {
-	Status string `json:"status"`
+	Status  string `json:"status"`
 	Message string `json:"message,omitempty"`
 }
 
@@ -221,4 +220,3 @@ func deleteSession(id int, ctx *apiContext) apiResponse {
 		return notFoundResponse()
 	}
 }
-

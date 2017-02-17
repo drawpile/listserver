@@ -1,20 +1,20 @@
 package db
 
 import (
-	"encoding/base64"
-	"database/sql"
 	"crypto/rand"
-	"strings"
-	"log"
+	"database/sql"
+	"encoding/base64"
 	"fmt"
+	"log"
+	"strings"
 )
 
 const SessionTimeout = 10
 const SessionTimeoutString = "'10 minutes'"
 
 type QueryOptions struct {
-	Title string    // filter by title
-	Nsfm bool       // show NSFM sessions
+	Title    string // filter by title
+	Nsfm     bool   // show NSFM sessions
 	Protocol string // filter by protocol version (comma separated list accepted)
 }
 
@@ -119,7 +119,7 @@ func GetHostSessionCount(host string, db *sql.DB) (int, error) {
 
 // Generate a secure random string
 func generateUpdateKey() (string, error) {
-	keybytes := make([]byte, 128 / 8)
+	keybytes := make([]byte, 128/8)
 	_, err := rand.Read(keybytes)
 	if err != nil {
 		return "", err
@@ -286,4 +286,3 @@ func DeleteSession(listingId int, updateKey string, db *sql.DB) (bool, error) {
 	}
 	return rows > 0, nil
 }
-

@@ -8,9 +8,9 @@ import (
 const cleanupInterval = 10 * 60 // seconds
 
 type BucketMap struct {
-	buckets map[string]*Bucket
+	buckets     map[string]*Bucket
 	nextCleanup int64
-	mutex sync.Mutex
+	mutex       sync.Mutex
 }
 
 func NewBucketMap() *BucketMap {
@@ -56,4 +56,3 @@ func (bm *BucketMap) cleanup(now int64) {
 		}
 	}
 }
-

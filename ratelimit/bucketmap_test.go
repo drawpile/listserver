@@ -5,7 +5,7 @@ import "testing"
 func TestBucketMap(t *testing.T) {
 	bm := NewBucketMap()
 
-	for i := 0; i<maxTokensPerBurst; i+= 1 {
+	for i := 0; i < maxTokensPerBurst; i += 1 {
 		if bm.addToken("1", 0) == false {
 			t.Error("First bucket filled up early!")
 			return
@@ -17,7 +17,7 @@ func TestBucketMap(t *testing.T) {
 		return
 	}
 
-	for i := 0; i<maxTokensPerBurst; i+= 1 {
+	for i := 0; i < maxTokensPerBurst; i += 1 {
 		if bm.addToken("2", 0) == false {
 			t.Error("First bucket filled up early!")
 		}
@@ -45,4 +45,3 @@ func TestBucketMap(t *testing.T) {
 		return
 	}
 }
-

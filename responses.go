@@ -10,7 +10,7 @@ type apiResponse interface {
 }
 
 type genericErrorResponse struct {
-	Code int
+	Code    int
 	Message string
 }
 
@@ -67,4 +67,3 @@ type noContentResponse struct {
 func (r noContentResponse) WriteResponse(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
-

@@ -1,35 +1,35 @@
 package main
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/url"
-	"net"
 	"database/sql"
-	"strings"
-	"log"
+	"encoding/json"
 	"fmt"
 	"github.com/drawpile/listserver/ratelimit"
+	"log"
+	"net"
+	"net/http"
+	"net/url"
+	"strings"
 )
 
 // An extended ServeMux for the API endpoints
 type apiMux struct {
 	*http.ServeMux
-	cfg *config
-	db *sql.DB
+	cfg         *config
+	db          *sql.DB
 	ratelimiter *ratelimit.BucketMap
 }
 
 // API request context
 type apiContext struct {
-	path string
-	method string
-	query url.Values
-	body *json.Decoder
-	clientIP net.IP
+	path      string
+	method    string
+	query     url.Values
+	body      *json.Decoder
+	clientIP  net.IP
 	updateKey string
-	cfg *config
-	db *sql.DB
+	cfg       *config
+	db        *sql.DB
 }
 
 func getRemoteAddr(header string, req *http.Request) (remoteAddr net.IP) {
@@ -69,7 +69,7 @@ func (mux *apiMux) HandleApiEndpoint(prefix string, endPoint func(*apiContext) a
 						genericErrorResponse{
 							http.StatusTooManyRequests,
 							fmt.Sprintf("Too many requests. Wait %d seconds.", mux.ratelimiter.DrainTime(remoteAddrString)),
-							}.WriteResponse(w)
+						}.WriteResponse(w)
 						return
 					}
 
@@ -84,14 +84,14 @@ func (mux *apiMux) HandleApiEndpoint(prefix string, endPoint func(*apiContext) a
 
 				// Build request context
 				ctx := apiContext{
-					path: p,
-					method: req.Method,
-					query: url.Values{},
-					body: json.NewDecoder(req.Body),
-					clientIP: remoteAddr,
+					path:      p,
+					method:    req.Method,
+					query:     url.Values{},
+					body:      json.NewDecoder(req.Body),
+					clientIP:  remoteAddr,
 					updateKey: req.Header.Get("X-Update-Key"),
-					cfg: mux.cfg,
-					db: mux.db,
+					cfg:       mux.cfg,
+					db:        mux.db,
 				}
 
 				if req.Method == "GET" {
@@ -111,4 +111,3 @@ func (mux *apiMux) HandleApiEndpoint(prefix string, endPoint func(*apiContext) a
 		}
 	})
 }
-
