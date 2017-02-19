@@ -147,7 +147,7 @@ func postNewSession(ctx *apiContext) apiResponse {
 	info.Nsfm = info.Nsfm || ctx.cfg.ContainsNsfmWords(info.Title)
 
 	// Make sure this host isn't banned
-	if cfg.IsBannedHost(info.Host) {
+	if ctx.cfg.IsBannedHost(info.Host) {
 		return forbiddenResponse()
 	}
 
@@ -160,16 +160,16 @@ func postNewSession(ctx *apiContext) apiResponse {
 
 	// Check per-host session limit
 	if !ctx.cfg.IsTrustedHost(info.Host) {
-		var maxSessions
+		var maxSessions int
 		if validation.IsNamedHost(info.Host) {
-			maxSessions = cfg.MaxSessionsPerNamedHost
+			maxSessions = ctx.cfg.MaxSessionsPerNamedHost
 		} else {
-			maxSessions = cfg.MaxSessionsPerHost
+			maxSessions = ctx.cfg.MaxSessionsPerHost
 		}
 
 		if count, err := db.GetHostSessionCount(info.Host, ctx.db); err != nil {
 			return internalServerError()
-		} else if count >= maxSesssions {
+		} else if count >= maxSessions {
 			return conflictResponse("Max listing count exceeded for this host")
 		}
 	}
