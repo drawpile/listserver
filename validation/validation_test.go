@@ -138,3 +138,21 @@ func TestLocalIps(t *testing.T) {
 		t.Error("Localhost not found in local IP list")
 	}
 }
+
+func TestNamedHost(t *testing.T) {
+	tests := []TestPair{
+		{"", false},
+		{"192.168.1.1", false},
+		{"10.0.0.1", false},
+		{"123", false},
+		{"example.com", true},
+		{"100.example.com", true},
+		{"192.168.1.com", true},
+	}
+	for _, v := range tests {
+		if IsNamedHost(v.teststr) != v.valid {
+			t.Error("IsNamedHost(", v.teststr, ") returned", !v.valid)
+		}
+	}
+}
+

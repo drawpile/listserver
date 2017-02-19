@@ -66,6 +66,14 @@ func IsValidProtocol(protocol string, whitelist []string) bool {
 	}
 }
 
+func IsNamedHost(hostname string) bool {
+	// Just check that the hostname ends with something that looks like a toplevel domain
+	// We assume the hostname has been validated before and is either an IP address or
+	// a valid domain name.
+	m, _ := regexp.MatchString(`^.+\.[A-Za-z]+$`, hostname)
+	return m
+}
+
 func isLocalIp(clientIp net.IP) bool {
 	for _, ip := range localIPs() {
 		if ip.Equal(clientIp) {
