@@ -130,6 +130,7 @@ func postNewSession(ctx *apiContext) apiResponse {
 	}
 	if err := validation.ValidateAnnouncement(info, rules); err != nil {
 		if _, isValidationError := err.(validation.ValidationError); isValidationError {
+			log.Println(ctx.clientIP, "invalid announcement:", err)
 			return invalidDataResponse(err.Error())
 		} else {
 			return internalServerError()
@@ -155,6 +156,7 @@ func postNewSession(ctx *apiContext) apiResponse {
 	if isActive, err := db.IsActiveSession(info.Host, info.Id, info.Port, ctx.db); err != nil {
 		return internalServerError()
 	} else if isActive {
+		log.Println(ctx.clientIP, "tried to relist session", info.Id)
 		return conflictResponse("Session already listed")
 	}
 
@@ -170,6 +172,7 @@ func postNewSession(ctx *apiContext) apiResponse {
 		if count, err := db.GetHostSessionCount(info.Host, ctx.db); err != nil {
 			return internalServerError()
 		} else if count >= maxSessions {
+			log.Println(ctx.clientIP, "exceeded max. announcement count")
 			return conflictResponse("Max listing count exceeded for this host")
 		}
 	}
