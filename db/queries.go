@@ -49,7 +49,7 @@ func QuerySessionList(opts QueryOptions, db *sql.DB) ([]SessionInfo, error) {
 		querySql += ` AND protocol IN (` + strings.Join(placeholders, ",") + `)`
 	}
 
-	querySql += ` ORDER BY started DESC`
+	querySql += ` ORDER BY title, users ASC`
 	rows, err := db.Query(querySql, params...)
 
 	if err != nil {
