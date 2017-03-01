@@ -185,12 +185,19 @@ func postNewSession(ctx *apiContext) apiResponse {
 
 	log.Println(ctx.clientIP, "announced", newses.ListingId, info.Host, info.Port, info.Id)
 
+	// Add a warning message if hostname is an IPv6 address
+	welcomeMsg := ctx.cfg.Welcome
+
+	if ctx.cfg.WarnIpv6 && validation.IsIpv6Address(info.Host) {
+		welcomeMsg = welcomeMsg + "\nNote: your host address is an IPv6 address. It may not be accessible by all users."
+	}
+
 	// TODO try connecting to the server to make sure the session actually exists
 
 	return announcementResponse{
 		&newses,
 		db.SessionTimeout,
-		ctx.cfg.Welcome,
+		welcomeMsg,
 	}
 }
 

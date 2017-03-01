@@ -74,6 +74,12 @@ func IsNamedHost(hostname string) bool {
 	return m
 }
 
+func IsIpv6Address(address string) bool {
+	// A bit sloppy: we assume the address is either a valid hostname or an IPv4/IPv6 address
+	m, _ := regexp.MatchString(`^[0-9a-fA-F]+:`, address)
+	return m
+}
+
 func isLocalIp(clientIp net.IP) bool {
 	for _, ip := range localIPs() {
 		if ip.Equal(clientIp) {

@@ -156,3 +156,18 @@ func TestNamedHost(t *testing.T) {
 	}
 }
 
+func TestIpv6Address(t *testing.T) {
+	tests := []TestPair{
+		{"", false},
+		{"192.168.1.1", false},
+		{"2001:db8:0:0:0:0:2:1", true},
+		{"2001:db8:0000:1:1:1:1:1", true},
+		{"2001:db8:0:1:1:1:1:1", true},
+	}
+	for _, v := range tests {
+		if IsIpv6Address(v.teststr) != v.valid {
+			t.Error("IsIpv6Address(", v.teststr, ") returned", !v.valid)
+		}
+	}
+}
+

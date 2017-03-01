@@ -21,6 +21,7 @@ type config struct {
 	BannedHosts             []string
 	RemoteAddressHeader     string
 	CheckUserAgent          bool
+	WarnIpv6                bool
 }
 
 func (c *config) IsTrustedHost(host string) bool {
@@ -68,6 +69,7 @@ func defaultConfig() *config {
 		BannedHosts:             []string{},
 		RemoteAddressHeader:     "",
 		CheckUserAgent:          false,
+		WarnIpv6:                true,
 	}
 }
 
