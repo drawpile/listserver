@@ -178,6 +178,13 @@ func (e RefreshError) Error() string {
 	return e.message
 }
 
+func optStringList(fields map[string]interface{}, name string) (string, bool) {
+	if value, ok := fields[name]; ok {
+		val, ok := value.([]string)
+		return strings.Join(val, ", "), ok
+	}
+	return "", false
+}
 func optString(fields map[string]interface{}, name string) (string, bool) {
 	if value, ok := fields[name]; ok {
 		val, ok := value.(string)
@@ -240,7 +247,7 @@ func RefreshSession(refreshFields map[string]interface{}, listingId int, updateK
 		params = append(params, val)
 	}
 
-	if val, ok := optString(refreshFields, "usernames"); ok {
+	if val, ok := optStringList(refreshFields, "usernames"); ok {
 		querySql += fmt.Sprintf(", usernames=$%d", len(params)+1)
 		params = append(params, val)
 	}
