@@ -22,6 +22,7 @@ type config struct {
 	RemoteAddressHeader     string
 	CheckUserAgent          bool
 	WarnIpv6                bool
+	Roomcodes               bool
 }
 
 func (c *config) IsTrustedHost(host string) bool {
@@ -70,6 +71,7 @@ func defaultConfig() *config {
 		RemoteAddressHeader:     "",
 		CheckUserAgent:          false,
 		WarnIpv6:                true,
+		Roomcodes:               true,
 	}
 }
 

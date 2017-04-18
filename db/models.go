@@ -15,10 +15,19 @@ type SessionInfo struct {
 	Nsfm      bool     `json:"nsfm"`
 	Owner     string   `json:"owner"`
 	Started   string   `json:"started"`
+	Roomcode  string   `json:"roomcode,omitempty"`
+}
+
+// Minimum info needed to join a session
+type JoinSessionInfo struct {
+	Host      string   `json:"host"`
+	Port      int      `json:"port"`
+	Id        string   `json:"id"`
 }
 
 // Info about a newly inserted session
 type NewSessionInfo struct {
 	ListingId int    `json:"id"`
 	UpdateKey string `json:"key"`
+	Roomcode  string `json:"roomcode,omitempty"`
 }

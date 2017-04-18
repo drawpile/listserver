@@ -55,6 +55,7 @@ Returns (200 OK):
         "host": "host address",
         "port": "host port",
         "id": "session ID",
+        "roomcode": "short unique ID code", (if exists for this listing)
         "protocol": "protocol version",
         "title": "session title",
         "users": number of users,
@@ -70,11 +71,31 @@ The `host`, `port` and `id` fields form a unique key.
 
 The username list may be empty. Password protected sessions will not typically list users.
 
+The `roomcode` field is optional. If it is present and not empty, it contains a random
+code that can be used to fetch the host, port and ID of the session. A room code is always
+exactly 5 letters long and consists of characters in the range A-Z.
+
 The following query parameters can be used:
 
 * `?title=substring` filter sessions to those whose title contains the given substring
 * `?protocol=version` show only sessions with the given protocol version (comma separated list accepted)
 * `?nsfm=true` show also sessions tagged "Not Suitable For Minors"
+
+### Joining information
+
+`GET /join/:roomcode`
+
+Returns (200 OK):
+    {
+        "host": "host address",
+        "port": "host port",
+        "id": "session ID",
+    }
+
+Fetch information needed to join a session using the room code. For private listings,
+this is the only way to get the server address.
+
+A 404 Not Found error is returned if the given code is not found on the server.
 
 ### Session announcement
 
@@ -121,10 +142,14 @@ Successful response (200 OK):
     {
         "status": "ok",
         "id": listing ID number,
+        "roomcode": "randomly generated room code" (optional)
         "key": "update key",
         "expires": expiration time in minutes,
         "message": "welcome message" (optional)
     }
+
+The `roomcode` is described above. The server may be configured not to generate
+room codes, in which case the field is empty or omitted.
 
 The update key is a random string that is used as a password when refreshing this session.
 
@@ -185,6 +210,10 @@ Returns 204 No Content on success.
 Returns the same errors as the Refresh call.
 
 ## History
+
+Version 1.4
+
+ * Added `roomcode` field and endpoint
 
 Version 1.3
 

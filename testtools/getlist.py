@@ -46,12 +46,13 @@ def get_session_list(server_url, nsfm=False, protocol='', title=''):
 
 def print_table(sessions):
     """Print a pretty session list table"""
-    table = prettytable.PrettyTable(("Host", "Port", "Id", "Owner", "Users", "⚑", "Title", "Age"))
+    table = prettytable.PrettyTable(("Host", "Port", "Id", "Room", "Owner", "Users", "⚑", "Title", "Age"))
     for s in sessions:
         table.add_row((
             s['host'],
             s['port'],
             s['id'],
+            s.get('roomcode', ''),
             s['owner'],
             s['users'],
             ('P' if s['password'] else '') + ('X' if s['nsfm'] else ''),

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 /**
@@ -105,6 +106,40 @@ func getSessionList(ctx *apiContext) apiResponse {
 	return SessionListResponse{list, ctx.query.Get("callback")}
 }
 
+type SessionJoinResponse struct {
+	db.JoinSessionInfo
+}
+
+func (r SessionJoinResponse) WriteResponse(w http.ResponseWriter) {
+	writeJsonResponse(w, r, http.StatusOK)
+}
+
+func RoomCodeEndpoint(ctx *apiContext) apiResponse {
+	code := strings.TrimSuffix(ctx.path, "/")
+	if len(code) != 5 {
+		return notFoundResponse()
+	}
+	for _, r := range code {
+		if !unicode.IsLetter(r) {
+			return notFoundResponse()
+		}
+	}
+
+	if ctx.method == "GET" {
+		session, err := db.QuerySessionByRoomcode(code, ctx.db)
+		if err != nil {
+			return internalServerError()
+		}
+		if session.Host == "" {
+			return notFoundResponse()
+		}
+		return SessionJoinResponse{session}
+
+	} else {
+		return methodNotAllowedResponse{"GET"}
+	}
+}
+
 type announcementResponse struct {
 	*db.NewSessionInfo
 	Expires int    `json:"expires"`
@@ -181,6 +216,16 @@ func postNewSession(ctx *apiContext) apiResponse {
 	newses, err := db.InsertSession(info, ctx.clientIP.String(), ctx.db)
 	if err != nil {
 		return internalServerError()
+	}
+
+	// Assign room code
+	if ctx.cfg.Roomcodes {
+		roomcode, err := db.AssignRoomcode(newses.ListingId, ctx.db)
+		if err != nil {
+			log.Println("Warning: couldn't assign roomcode to listing", newses.ListingId, err)
+		} else {
+			newses.Roomcode = roomcode
+		}
 	}
 
 	log.Println(ctx.clientIP, "announced", newses.ListingId, info.Host, info.Port, info.Id)

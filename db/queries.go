@@ -4,9 +4,11 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
+	"github.com/lib/pq"
 	"fmt"
 	"log"
 	"strings"
+	"errors"
 )
 
 const SessionTimeout = 10
@@ -22,7 +24,7 @@ type QueryOptions struct {
 // Parameters:
 func QuerySessionList(opts QueryOptions, db *sql.DB) ([]SessionInfo, error) {
 	querySql := `
-	SELECT host, port, session_id, protocol, title, users, usernames, password, nsfm, owner,
+	SELECT host, port, session_id, coalesce(roomcode, '') as roomcode, protocol, title, users, usernames, password, nsfm, owner,
 	to_char(started at time zone 'UTC', 'YYYY-MM-DD HH24:MI:ss') as started
 	FROM sessions
 	WHERE last_active >= current_timestamp - $1::interval AND unlisted=false
@@ -63,7 +65,7 @@ func QuerySessionList(opts QueryOptions, db *sql.DB) ([]SessionInfo, error) {
 	for rows.Next() {
 		ses := SessionInfo{}
 		var usernames string
-		err := rows.Scan(&ses.Host, &ses.Port, &ses.Id, &ses.Protocol, &ses.Title, &ses.Users, &usernames, &ses.Password, &ses.Nsfm, &ses.Owner, &ses.Started)
+		err := rows.Scan(&ses.Host, &ses.Port, &ses.Id, &ses.Roomcode, &ses.Protocol, &ses.Title, &ses.Users, &usernames, &ses.Password, &ses.Nsfm, &ses.Owner, &ses.Started)
 		if len(usernames) > 0 {
 			ses.Usernames = strings.Split(usernames, ",") // TODO user array type when pq driver supports it
 		} else {
@@ -79,6 +81,38 @@ func QuerySessionList(opts QueryOptions, db *sql.DB) ([]SessionInfo, error) {
 	}
 
 	return sessions, nil
+}
+
+// Get the session matching the given room code (if it is still active)
+func QuerySessionByRoomcode(roomcode string, db *sql.DB) (JoinSessionInfo, error) {
+	querySql := `
+	SELECT host, port, session_id
+	FROM sessions
+	WHERE last_active >= current_timestamp - $1::interval AND unlisted=false
+	AND roomcode=$2
+	`
+
+	ses := JoinSessionInfo{}
+	rows, err := db.Query(querySql, SessionTimeoutString, roomcode)
+
+	if err != nil {
+		log.Println("Sesion (roomcode) query error:", err)
+		return ses, err
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		// Not found
+		return ses, nil
+	}
+
+	err = rows.Scan(&ses.Host, &ses.Port, &ses.Id)
+	if err != nil {
+		log.Println("Session (roomcode) row error:", err)
+		return JoinSessionInfo{}, err
+	}
+
+	return ses, nil
 }
 
 // Is there an active announcement for this session
@@ -127,6 +161,19 @@ func generateUpdateKey() (string, error) {
 	return base64.URLEncoding.EncodeToString(keybytes), nil
 }
 
+func generateRoomcode(length int) (string, error) {
+	randbytes := make([]byte, length)
+	_, err := rand.Read(randbytes)
+	if err != nil {
+		return "", err
+	}
+	code := make([]rune, length)
+	for i := range randbytes {
+		code[i] = rune(randbytes[i] % 26) + 'A'
+	}
+	return string(code), nil
+}
+
 // Insert a new session to the database
 // Note: this function does not validate the data;
 // that must be done before calling this
@@ -167,7 +214,31 @@ func InsertSession(session SessionInfo, clientIp string, db *sql.DB) (NewSession
 		return NewSessionInfo{}, err
 	}
 
-	return NewSessionInfo{listingId, updateKey}, nil
+	return NewSessionInfo{listingId, updateKey, ""}, nil
+}
+
+func AssignRoomcode(listingId int, db *sql.DB) (string, error) {
+	for retry := 0; retry < 10; retry += 1 {
+		roomcode, err := generateRoomcode(5)
+		if err != nil {
+			return "", err
+		}
+		_, err = db.Exec("UPDATE sessions SET roomcode=$1 WHERE id=$2", roomcode, listingId)
+		if err != nil {
+			if pgerr, ok := err.(*pq.Error); ok {
+				// Unlikely, but can happen
+				if pgerr.Code.Name() == "unique_violation" {
+					continue
+				}
+			}
+
+			return "", err
+
+		} else {
+			return roomcode, nil
+		}
+	}
+	return "", errors.New("Couldn't generate a unique room code")
 }
 
 type RefreshError struct {
