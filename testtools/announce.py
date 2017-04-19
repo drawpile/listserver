@@ -13,7 +13,7 @@ import uuid
 import random
 import json
 
-def make_random_announcement(server_url, host='', port=27750, protocol='dp:4.20.1', nsfm=False, verbose=False):
+def make_random_announcement(server_url, host='', port=27750, protocol='dp:4.20.1', nsfm=False, private=False, verbose=False):
     """Make a random announcement at the given server.
 
     Params:
@@ -39,6 +39,7 @@ def make_random_announcement(server_url, host='', port=27750, protocol='dp:4.20.
         'password': random.randint(1, 3) == 1,
         'nsfm': nsfm,
         'owner': 'tester',
+        'private': private,
         }, sort_keys=True, indent=2)
     if verbose:
         print(reqdata, file=sys.stderr)
@@ -54,6 +55,7 @@ if __name__ == '__main__':
     parser.add_argument("--port", "-p", default='27750', help="Port to announce")
     parser.add_argument("--protocol", default='dp:4.20.1', help="Protocol version to announce")
     parser.add_argument("--nsfm", default=False, action="store_true", help="Set the NSFM tag")
+    parser.add_argument("--private", default=False, action="store_true", help="Private listing")
     parser.add_argument("--verbose", "-v", default=False, action="store_true", help="Print request to stderr")
     args = parser.parse_args()
 
@@ -63,6 +65,7 @@ if __name__ == '__main__':
             port=int(args.port),
             protocol=args.protocol,
             nsfm=args.nsfm,
+            private=args.private,
             verbose=args.verbose,
             )
 

@@ -27,7 +27,7 @@ func QuerySessionList(opts QueryOptions, db *sql.DB) ([]SessionInfo, error) {
 	SELECT host, port, session_id, coalesce(roomcode, '') as roomcode, protocol, title, users, usernames, password, nsfm, owner,
 	to_char(started at time zone 'UTC', 'YYYY-MM-DD HH24:MI:ss') as started
 	FROM sessions
-	WHERE last_active >= current_timestamp - $1::interval AND unlisted=false
+	WHERE last_active >= current_timestamp - $1::interval AND unlisted=false AND private=false
 	`
 
 	params := []interface{}{SessionTimeoutString}
@@ -187,9 +187,9 @@ func InsertSession(session SessionInfo, clientIp string, db *sql.DB) (NewSession
 
 	insertSql := `
 	INSERT INTO sessions
-	(host, port, session_id, protocol, title, users, usernames, password, nsfm, owner, started, last_active, update_key, client_ip)
+	(host, port, session_id, protocol, title, users, usernames, password, nsfm, private, owner, started, last_active, update_key, client_ip)
 	VALUES
-	($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, current_timestamp, current_timestamp, $11, $12)
+	($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, current_timestamp, current_timestamp, $12, $13)
 	RETURNING id
 	`
 	var listingId int
@@ -204,6 +204,7 @@ func InsertSession(session SessionInfo, clientIp string, db *sql.DB) (NewSession
 		&usernames,
 		&session.Password,
 		&session.Nsfm,
+		&session.Private,
 		&session.Owner,
 		&updateKey,
 		&clientIp,
@@ -214,7 +215,7 @@ func InsertSession(session SessionInfo, clientIp string, db *sql.DB) (NewSession
 		return NewSessionInfo{}, err
 	}
 
-	return NewSessionInfo{listingId, updateKey, ""}, nil
+	return NewSessionInfo{listingId, updateKey, session.Private, ""}, nil
 }
 
 func AssignRoomcode(listingId int, db *sql.DB) (string, error) {
@@ -330,6 +331,11 @@ func RefreshSession(refreshFields map[string]interface{}, listingId int, updateK
 
 	if val, ok := optBool(refreshFields, "nsfm"); ok {
 		querySql += fmt.Sprintf(", nsfm=$%d", len(params)+1)
+		params = append(params, val)
+	}
+
+	if val, ok := optBool(refreshFields, "private"); ok {
+		querySql += fmt.Sprintf(", private=$%d", len(params)+1)
 		params = append(params, val)
 	}
 

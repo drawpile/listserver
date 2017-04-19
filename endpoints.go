@@ -228,7 +228,14 @@ func postNewSession(ctx *apiContext) apiResponse {
 		}
 	}
 
-	log.Println(ctx.clientIP, "announced", newses.ListingId, info.Host, info.Port, info.Id)
+	var announcementType string
+	if newses.Private {
+		announcementType = "private"
+	} else {
+		announcementType = "public"
+	}
+
+	log.Println(ctx.clientIP, "announced", announcementType, "session", newses.ListingId, info.Host, info.Port, info.Id)
 
 	// Add a warning message if hostname is an IPv6 address
 	welcomeMsg := ctx.cfg.Welcome

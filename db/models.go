@@ -16,6 +16,7 @@ type SessionInfo struct {
 	Owner     string   `json:"owner"`
 	Started   string   `json:"started"`
 	Roomcode  string   `json:"roomcode,omitempty"`
+	Private   bool     `json:"private,omitempty"`
 }
 
 // Minimum info needed to join a session
@@ -29,5 +30,6 @@ type JoinSessionInfo struct {
 type NewSessionInfo struct {
 	ListingId int    `json:"id"`
 	UpdateKey string `json:"key"`
+	Private   bool   `json:"private"`
 	Roomcode  string `json:"roomcode,omitempty"`
 }

@@ -113,7 +113,8 @@ The request body:
         "users": user count,
         "usernames": ["list of user names", ...],
         "password": boolean (is the session password protected),
-        "nsfm": boolean
+        "nsfm": boolean,
+        "private": boolean
     }
 
 The `id`, `protocol`, `owner` and `title` fields are required.
@@ -134,6 +135,9 @@ The `nsfm` field is used to inform that the session will contain material not
 suitable for minors. The server may also implicitly apply the tag based on
 words appearing in the title.
 
+If the `private` field is present and set to `true`, the session will not be
+listed in the public list, but is still accessible by room code.
+
 The `usernames` field contains a list of logged in users. This is an optional
 field. Typically only sessions open to public will provide it.
 
@@ -145,6 +149,7 @@ Successful response (200 OK):
         "roomcode": "randomly generated room code" (optional)
         "key": "update key",
         "expires": expiration time in minutes,
+        "private": true,
         "message": "welcome message" (optional)
     }
 
@@ -157,6 +162,8 @@ The `expires` value is the number of minutes after which the listing will expire
 unless refreshed. This field was added in API version 1.3. Older clients (pre 2.0)
 have a fixed 5 minute refresh interval. To retain compatibility,
 the expiration time should be at least 6 minutes.
+
+If the listing was made private, the `private` field is included and set to true.
 
 Error (422 Unprocessable Entity):
 
@@ -181,7 +188,8 @@ The request body:
         "usernames": ["user name list", ...],
         "password": is a password required (true/false),
         "owner": "session owner's name",
-        "nsfm": true
+        "nsfm": true,
+        "private": false
     }
 
 All fields are optional. If the values have not changed since the last refresh,
@@ -214,6 +222,7 @@ Returns the same errors as the Refresh call.
 Version 1.4
 
  * Added `roomcode` field and endpoint
+ * Added option to register private sessions (visible by roomcode only)
 
 Version 1.3
 
