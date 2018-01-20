@@ -38,7 +38,7 @@ func RootEndpoint(ctx *apiContext) apiResponse {
 
 	return apiRootResponse{
 		ApiName:     "drawpile-session-list",
-		Version:     "1.2",
+		Version:     "1.5",
 		Name:        ctx.cfg.Name,
 		Description: ctx.cfg.Description,
 		Favicon:     ctx.cfg.Favicon,
@@ -73,6 +73,10 @@ func SessionListEndpoint(ctx *apiContext) apiResponse {
 
 		} else if ctx.method == "POST" {
 			return postNewSession(ctx)
+
+		} else if ctx.method == "PUT" {
+			return batchRefreshSessions(ctx)
+
 		} else {
 			return methodNotAllowedResponse{"GET, POST"}
 		}
@@ -254,8 +258,9 @@ func postNewSession(ctx *apiContext) apiResponse {
 }
 
 type refreshResponse struct {
-	Status  string `json:"status"`
-	Message string `json:"message,omitempty"`
+	Status    string                 `json:"status"`
+	Message   string                 `json:"message,omitempty"`
+	Responses map[string]interface{} `json:"responses,omitempty"`
 }
 
 func (r refreshResponse) WriteResponse(w http.ResponseWriter) {
@@ -278,7 +283,54 @@ func refreshSession(id int, ctx *apiContext) apiResponse {
 	}
 
 	log.Println(ctx.clientIP, "refreshed", id)
-	return refreshResponse{"ok", ""}
+	return refreshResponse{"ok", "", nil}
+}
+
+func batchRefreshSessions(ctx *apiContext) apiResponse {
+	var refreshBatch map[string]interface{}
+	if err := ctx.body.Decode(&refreshBatch); err != nil {
+		log.Println("Invalid batch refresh body:", err)
+		return badRequestResponse("Unparseable JSON request body")
+	}
+
+	if len(refreshBatch) == 0 {
+		return badRequestResponse("At least one session should be included")
+	}
+
+	responses := make(map[string]interface{})
+	idlist := make([]string, 0, len(refreshBatch))
+
+	for id, info := range refreshBatch {
+		sessionId, err := strconv.Atoi(id)
+		if err != nil {
+			return badRequestResponse(id + " is not an integer!")
+		}
+
+		sessionInfo, ok := info.(map[string]interface{})
+		if !ok {
+			return badRequestResponse(id + ": expected object")
+		}
+
+		updateKey, ok := sessionInfo["updatekey"].(string)
+		if !ok {
+			return badRequestResponse(id + ".updatekey: expected string")
+		}
+
+		err = db.RefreshSession(sessionInfo, sessionId, updateKey, ctx.db)
+		if err != nil {
+			if _, isRefreshError := err.(db.RefreshError); isRefreshError {
+				responses[id] = "error"
+			} else {
+				return internalServerError()
+			}
+		} else {
+			responses[id] = "ok"
+			idlist = append(idlist, id)
+		}
+	}
+
+	log.Println(ctx.clientIP, "batch refreshed", idlist)
+	return refreshResponse{"ok", "", responses}
 }
 
 func deleteSession(id int, ctx *apiContext) apiResponse {

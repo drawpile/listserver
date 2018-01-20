@@ -204,6 +204,34 @@ Successful response (200 OK):
 Error 404 Not Found is returned when the session listing is not found,
 it has expired or the update key was wrong.
 
+### Batch refresh
+
+Batch refresh is a way to refresh multiple sessions with a single query.
+It is useful for servers hosting many sessions, since it avoids the
+overhead of opening multiple HTTP connections.
+
+`PUT /sessions/`
+
+The request body:
+
+    {
+        "listing ID": {
+            "updatekey": "listing update key",
+            ... refresh fields (same as in individual refresh) ...
+        },
+        ...
+    }
+
+A 200 OK response is returned even if none of the refreshes were successful:
+
+    {
+        "status": "ok",
+        "responses": {
+            "listing ID": "ok" | "error",
+            ...
+        }
+    }
+
 ### Unlisting an announcement
 
 If an announcement is not refreshed within its expiration time,
@@ -218,6 +246,10 @@ Returns 204 No Content on success.
 Returns the same errors as the Refresh call.
 
 ## History
+
+Version 1.5
+
+ * Added batch refresh endpoint
 
 Version 1.4
 
