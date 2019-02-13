@@ -127,16 +127,22 @@ func TestIsJsFunctionName(t *testing.T) {
 func TestLocalIps(t *testing.T) {
 	ips := localIPs()
 
-	hadLocalhost := false
+	myLocalIp := net.ParseIP("127.0.0.2")
+
 	for _, ip := range ips {
-		if ip.String() == "127.0.0.1" {
-			hadLocalhost = true
-			break
+		switch v := ip.(type) {
+		case *net.IPNet:
+			if v.Contains(myLocalIp) {
+				return
+			}
+		case *net.IPAddr:
+			if v.IP.Equal(myLocalIp) {
+				return
+			}
 		}
 	}
-	if !hadLocalhost {
-		t.Error("Localhost not found in local IP list")
-	}
+
+	t.Error("Localhost not found in local IP list")
 }
 
 func TestNamedHost(t *testing.T) {
