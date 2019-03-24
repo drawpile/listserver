@@ -1,5 +1,7 @@
 package db
 
+import "strconv"
+
 // The SessionInfo struct represents a session announcement fetched from the database
 // It is also used to insert new entries.
 // When inserting, the "Started" field is ignored and the current timestamp is used
@@ -17,6 +19,10 @@ type SessionInfo struct {
 	Started   string   `json:"started"`
 	Roomcode  string   `json:"roomcode,omitempty"`
 	Private   bool     `json:"private,omitempty"`
+}
+
+func (info SessionInfo) HostAddress() string {
+	return info.Host + ":" + strconv.Itoa(info.Port)
 }
 
 // Minimum info needed to join a session

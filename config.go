@@ -23,6 +23,7 @@ type config struct {
 	CheckUserAgent          bool
 	WarnIpv6                bool
 	Roomcodes               bool
+	CheckServer             bool
 }
 
 func (c *config) IsTrustedHost(host string) bool {
@@ -72,6 +73,7 @@ func defaultConfig() *config {
 		CheckUserAgent:          false,
 		WarnIpv6:                true,
 		Roomcodes:               true,
+		CheckServer:             true,
 	}
 }
 

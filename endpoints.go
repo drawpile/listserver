@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/drawpile/listserver/db"
 	"github.com/drawpile/listserver/validation"
+	"github.com/drawpile/listserver/drawpile"
 	"log"
 	"net/http"
 	"strconv"
@@ -38,7 +39,7 @@ func RootEndpoint(ctx *apiContext) apiResponse {
 
 	return apiRootResponse{
 		ApiName:     "drawpile-session-list",
-		Version:     "1.5",
+		Version:     "1.6",
 		Name:        ctx.cfg.Name,
 		Description: ctx.cfg.Description,
 		Favicon:     ctx.cfg.Favicon,
@@ -214,6 +215,17 @@ func postNewSession(ctx *apiContext) apiResponse {
 			log.Println(ctx.clientIP, "exceeded max. announcement count")
 			return conflictResponse("Max listing count exceeded for this host")
 		}
+
+		// Do a connectivity check only for hosts that use an IP address
+		// because we can assume that anyone who has gone through the trouble
+		// of configuring a domain name can figure out connectivity problems without
+		// the list server's help.
+		if ctx.cfg.CheckServer && !validation.IsNamedHost(info.Host) {
+			if err := drawpile.TryDrawpileLogin(info.HostAddress(), info.Protocol); err != nil {
+				log.Println(info.HostAddress(), "does not seem to be running a Drawpile server")
+				return conflictResponse(err.Error())
+			}
+		}
 	}
 
 	// Insert to database
@@ -247,8 +259,6 @@ func postNewSession(ctx *apiContext) apiResponse {
 	if ctx.cfg.WarnIpv6 && validation.IsIpv6Address(info.Host) {
 		welcomeMsg = welcomeMsg + "\nNote: your host address is an IPv6 address. It may not be accessible by all users."
 	}
-
-	// TODO try connecting to the server to make sure the session actually exists
 
 	return announcementResponse{
 		&newses,

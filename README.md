@@ -45,6 +45,10 @@ original client address must be passed in the HTTP header.
 
 ## Changelog
 
+2019-03-24 Version 1.5
+
+ * Added CheckServer option: the list server can check if the listed address is actually running a reachable Drawpile server
+
 2017-02-15 Version 1.0
 
  * First release (succeeds the old PHP and Python based implementations)
