@@ -1,6 +1,9 @@
 package db
 
-import "strconv"
+import (
+	"fmt"
+	"strings"
+)
 
 // The SessionInfo struct represents a session announcement fetched from the database
 // It is also used to insert new entries.
@@ -22,7 +25,11 @@ type SessionInfo struct {
 }
 
 func (info SessionInfo) HostAddress() string {
-	return info.Host + ":" + strconv.Itoa(info.Port)
+	if strings.ContainsRune(info.Host, ':') {
+		return fmt.Sprintf("[%s]:%d", info.Host, info.Port)
+	} else {
+		return fmt.Sprintf("%s:%d", info.Host, info.Port)
+	}
 }
 
 // Minimum info needed to join a session
