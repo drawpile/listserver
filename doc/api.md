@@ -28,6 +28,7 @@ Returns (200 OK):
         "name": "listing name",
         "description": "listing description",
         "favicon": "favicon URL" (optional),
+        "read_only": true|false (optional),
         "source": "URL for the server source code" (optional)
     }
 
@@ -43,6 +44,11 @@ not be able to use API `1.0`.
 
 The `name` is the name that will be shown in the list selection dropdown.
 The `description` text is a longer description (few sentences at most) of the list.
+
+If the `read_only` field is present and its value is `true`, sessions from this list
+will be shown in the application's Join dialog, but sessions cannot be announced here.
+[Pubsrvproxy](https://github.com/drawpile/pubsrvproxy) can be used as a read-only
+list server.
 
 ### Session list
 
