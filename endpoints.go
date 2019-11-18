@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/drawpile/listserver/db"
-	"github.com/drawpile/listserver/validation"
 	"github.com/drawpile/listserver/drawpile"
+	"github.com/drawpile/listserver/validation"
 	"log"
 	"net/http"
 	"strconv"
@@ -23,6 +23,8 @@ type apiRootResponse struct {
 	Description string `json:"description"`
 	Favicon     string `json:"favicon,omitempty"`
 	Source      string `json:"source"`
+	Public      bool   `json:"public"`
+	Private     bool   `json:"private"`
 }
 
 func (r apiRootResponse) WriteResponse(w http.ResponseWriter) {
@@ -44,6 +46,8 @@ func RootEndpoint(ctx *apiContext) apiResponse {
 		Description: ctx.cfg.Description,
 		Favicon:     ctx.cfg.Favicon,
 		Source:      "https://github.com/drawpile/listserver/",
+		Public:      ctx.cfg.Public,
+		Private:     ctx.cfg.Roomcodes,
 	}
 }
 
@@ -68,6 +72,9 @@ func (r SessionListResponse) WriteResponse(w http.ResponseWriter) {
 }
 
 func SessionListEndpoint(ctx *apiContext) apiResponse {
+	if !ctx.cfg.Public {
+		return forbiddenResponse()
+	}
 	if len(ctx.path) == 0 {
 		if ctx.method == "GET" {
 			return getSessionList(ctx)
@@ -120,6 +127,10 @@ func (r SessionJoinResponse) WriteResponse(w http.ResponseWriter) {
 }
 
 func RoomCodeEndpoint(ctx *apiContext) apiResponse {
+	if !ctx.cfg.Roomcodes {
+		return forbiddenResponse()
+	}
+
 	code := strings.TrimSuffix(ctx.path, "/")
 	if len(code) != 5 {
 		return notFoundResponse()
@@ -160,6 +171,11 @@ func postNewSession(ctx *apiContext) apiResponse {
 	if err := ctx.body.Decode(&info); err != nil {
 		log.Println("Invalid session announcement body:", err)
 		return badRequestResponse("Unparseable JSON request body")
+	}
+
+	// Check if public / private listing is enabled
+	if (info.Private && !ctx.cfg.Roomcodes) || (!info.Private && !ctx.cfg.Public) {
+		return forbiddenResponse()
 	}
 
 	// Validate

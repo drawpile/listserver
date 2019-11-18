@@ -22,6 +22,7 @@ type config struct {
 	RemoteAddressHeader     string
 	CheckUserAgent          bool
 	WarnIpv6                bool
+	Public                  bool
 	Roomcodes               bool
 	CheckServer             bool
 }
@@ -72,6 +73,7 @@ func defaultConfig() *config {
 		RemoteAddressHeader:     "",
 		CheckUserAgent:          false,
 		WarnIpv6:                true,
+		Public:                  true,
 		Roomcodes:               true,
 		CheckServer:             true,
 	}

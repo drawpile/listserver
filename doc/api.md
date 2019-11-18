@@ -24,12 +24,14 @@ Returns (200 OK):
 
     {
         "api_name": "drawpile-session-list",
-        "version": "1.2",
+        "version": "1.6",
         "name": "listing name",
         "description": "listing description",
         "favicon": "favicon URL" (optional),
-        "read_only": true|false (optional),
+        "read_only": true|false (optional, default is false),
         "source": "URL for the server source code" (optional)
+        "public": true|false (optional, default is true),
+        "private": true|false (optional, default is !read_only)
     }
 
 When a list is added to Drawpile, it makes a request to this URL to make
@@ -49,6 +51,14 @@ If the `read_only` field is present and its value is `true`, sessions from this 
 will be shown in the application's Join dialog, but sessions cannot be announced here.
 [Pubsrvproxy](https://github.com/drawpile/pubsrvproxy) can be used as a read-only
 list server.
+
+If the `public` field is set to `false`, this list server does not return public session
+lists. If the `private` field is set to `false`, this list server does not support private listings.
+(At least one of these should be `true`.)
+
+For backward compatibility, the default value for `private` depends on whether the server is read-only.
+For read-only servers, `private` is false by default. The client can use the public and private fields
+to disable the relevant actions in the user interface when this server is selected.
 
 ### Session list
 
@@ -87,6 +97,8 @@ The following query parameters can be used:
 * `?protocol=version` show only sessions with the given protocol version (comma separated list accepted)
 * `?nsfm=true` show also sessions tagged "Not Suitable For Minors"
 
+If public listings are disabled on this server, this endpoint returns HTTP 403 Forbidden, or 404 Not Found.
+
 ### Joining information
 
 `GET /join/:roomcode`
@@ -102,6 +114,8 @@ Fetch information needed to join a session using the room code. For private list
 this is the only way to get the server address.
 
 A 404 Not Found error is returned if the given code is not found on the server.
+
+A 403 Forbidden error is returned if private listings are disabled on this server.
 
 ### Session announcement
 
@@ -178,6 +192,8 @@ Error (422 Unprocessable Entity):
         "message": "human readable error message",
     }
 
+Error 403 (Forbidden) means public listings are disabled on this server.
+
 ### Refreshing an announcement
 
 The announcement should be refreshed every few minutes to let the server know the session is still active.
@@ -252,6 +268,10 @@ Returns 204 No Content on success.
 Returns the same errors as the Refresh call.
 
 ## History
+
+Version 1.6
+
+ * Added `public` and `private` server info fields
 
 Version 1.5
 
