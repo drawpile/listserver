@@ -151,6 +151,22 @@ func GetHostSessionCount(host string, db *sql.DB) (int, error) {
 	return count, nil
 }
 
+// Check if the given host is on the ban list
+func IsBannedHost(host string, db *sql.DB) (bool, error) {
+	querySql := `
+	SELECT EXISTS(SELECT 1
+	FROM hostbans
+	WHERE host=$1 AND (expires IS NULL OR expires > CURRENT_TIMESTAMP)
+	)`
+
+	var banned bool
+	if err := db.QueryRow(querySql, host).Scan(&banned); err != nil {
+		log.Println("Banned host query error:", err)
+		return false, err
+	}
+	return banned, nil
+}
+
 // Generate a secure random string
 func generateUpdateKey() (string, error) {
 	keybytes := make([]byte, 128/8)

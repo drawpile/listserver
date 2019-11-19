@@ -20,7 +20,6 @@ type config struct {
 	MaxSessionsPerHost      int
 	MaxSessionsPerNamedHost int
 	TrustedHosts            []string
-	BannedHosts             []string
 	RemoteAddressHeader     string
 	CheckUserAgent          bool
 	WarnIpv6                bool
@@ -46,15 +45,6 @@ func (c *config) IsAllowedOrigin(origin string) string {
 	}
 
 	return ""
-}
-
-func (c *config) IsBannedHost(host string) bool {
-	for _, v := range c.BannedHosts {
-		if host == v {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *config) ContainsNsfmWords(str string) bool {
@@ -83,7 +73,6 @@ func defaultConfig() *config {
 		MaxSessionsPerHost:      3,
 		MaxSessionsPerNamedHost: 10,
 		TrustedHosts:            []string{},
-		BannedHosts:             []string{},
 		RemoteAddressHeader:     "",
 		CheckUserAgent:          false,
 		WarnIpv6:                true,

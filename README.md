@@ -50,6 +50,12 @@ At a minimum you should set the following configuration settings:
  * `description` a short description of this server shown to the user
  * `remoteAddressHeader` since you will most likely be using nginx or apache in front of this server
 
+## Banning hosts
+
+Hosts can be banned from announcements by adding the hostname to the `hostbans` table.
+Optionally, an expiration time can be given. If NULL, the ban does not expire. The `notes`
+column can be used for freeform notes about the ban.
+
 ## Using with nginx
 
 In your nginx virtual host config, add a proxy pass location like this:
