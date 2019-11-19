@@ -27,6 +27,7 @@ type apiContext struct {
 	path      string
 	method    string
 	query     url.Values
+	header    *http.Header
 	body      *json.Decoder
 	clientIP  net.IP
 	updateKey string
@@ -90,6 +91,7 @@ func (mux *apiMux) HandleApiEndpoint(prefix string, endPoint func(*apiContext) a
 					path:      p,
 					method:    req.Method,
 					query:     url.Values{},
+					header:    &req.Header,
 					body:      json.NewDecoder(req.Body),
 					clientIP:  remoteAddr,
 					updateKey: req.Header.Get("X-Update-Key"),

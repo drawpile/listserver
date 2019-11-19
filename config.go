@@ -8,6 +8,7 @@ import (
 type config struct {
 	Listen                  string
 	IncludeServers          []string
+	AllowOrigins            []string
 	Database                string
 	Name                    string
 	Description             string
@@ -37,6 +38,16 @@ func (c *config) IsTrustedHost(host string) bool {
 	return false
 }
 
+func (c *config) IsAllowedOrigin(origin string) string {
+	for _, ao := range c.AllowOrigins {
+		if ao == "*" || ao == origin {
+			return ao
+		}
+	}
+
+	return ""
+}
+
 func (c *config) IsBannedHost(host string) bool {
 	for _, v := range c.BannedHosts {
 		if host == v {
@@ -60,6 +71,7 @@ func defaultConfig() *config {
 	return &config{
 		Listen:                  "localhost:8080",
 		IncludeServers:          []string{},
+		AllowOrigins:            []string{"*"},
 		Database:                "",
 		Name:                    "test",
 		Description:             "Test server",

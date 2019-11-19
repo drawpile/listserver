@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>listserver test</title>
+</head>
+<body>
+
+<p id="apiname"></p>
+
+<pre id="list">
+
+<script>
+const baseUrl = 'http://localhost:8080/';
+
+fetch(baseUrl)
+	.then(function(result) {
+		return result.json();
+	}).then(function(info) {
+		console.log("Fetched", info);
+		document.getElementById("apiname").textContent = info.api_name;
+
+	}).catch(function(error) {
+		console.log("Fetch error", error);
+		document.getElementById("apiname").textContent = error.toString();
+	});
+
+fetch(baseUrl + "sessions/")
+	.then(function(result) {
+		return result.json();
+	}).then(function(sessions) {
+		console.log("Fetched", sessions);
+		let text = '';
+		for(const s of sessions) {
+			text += `${s.host}:${s.port} -- ${s.id}\n`
+		}
+		document.getElementById("list").textContent = text;
+
+	}).catch(function(error) {
+		console.log("Fetch error", error);
+		document.getElementById("list").textContent = error.toString();
+	});
+</script>
+
+</body>
+</html>

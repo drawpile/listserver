@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/drawpile/listserver/db"
 	"github.com/drawpile/listserver/drawpile"
 	"github.com/drawpile/listserver/inclsrv"
@@ -27,9 +25,14 @@ type apiRootResponse struct {
 	Readonly    bool   `json:"read_only"`
 	Public      bool   `json:"public"`
 	Private     bool   `json:"private"`
+
+	allowOrigin string
 }
 
 func (r apiRootResponse) WriteResponse(w http.ResponseWriter) {
+	if len(r.allowOrigin) > 0 {
+		w.Header().Set("Access-Control-Allow-Origin", r.allowOrigin)
+	}
 	writeJsonResponse(w, r, http.StatusOK)
 }
 
@@ -53,6 +56,7 @@ func RootEndpoint(ctx *apiContext) apiResponse {
 		Readonly:    readonly,
 		Public:      ctx.cfg.Public,
 		Private:     ctx.cfg.Roomcodes && !readonly,
+		allowOrigin: ctx.cfg.IsAllowedOrigin(ctx.header.Get("Origin")),
 	}
 }
 
@@ -61,19 +65,16 @@ func RootEndpoint(ctx *apiContext) apiResponse {
  */
 
 type SessionListResponse struct {
-	sessions      []db.SessionInfo
-	jsonpCallback string
+	sessions    []db.SessionInfo
+	allowOrigin string
 }
 
 func (r SessionListResponse) WriteResponse(w http.ResponseWriter) {
-	if len(r.jsonpCallback) == 0 || !validation.IsJsFunctionName(r.jsonpCallback) {
-		writeJsonResponse(w, r.sessions, http.StatusOK)
-	} else {
-		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		content, _ := json.MarshalIndent(r.sessions, "", "  ")
-		fmt.Fprintf(w, "%s(%s);", r.jsonpCallback, content)
+	if len(r.allowOrigin) > 0 {
+		w.Header().Set("Access-Control-Allow-Origin", r.allowOrigin)
 	}
+
+	writeJsonResponse(w, r.sessions, http.StatusOK)
 }
 
 func SessionListEndpoint(ctx *apiContext) apiResponse {
@@ -138,7 +139,10 @@ func getSessionList(ctx *apiContext) apiResponse {
 		return internalServerError()
 	}
 
-	return SessionListResponse{list, ctx.query.Get("callback")}
+	return SessionListResponse{
+		list,
+		ctx.cfg.IsAllowedOrigin(ctx.header.Get("Origin")),
+	}
 }
 
 type SessionJoinResponse struct {
