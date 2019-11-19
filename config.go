@@ -7,6 +7,7 @@ import (
 
 type config struct {
 	Listen                  string
+	IncludeServers          []string
 	Database                string
 	Name                    string
 	Description             string
@@ -58,6 +59,7 @@ func (c *config) ContainsNsfmWords(str string) bool {
 func defaultConfig() *config {
 	return &config{
 		Listen:                  "localhost:8080",
+		IncludeServers:          []string{},
 		Database:                "",
 		Name:                    "test",
 		Description:             "Test server",

@@ -24,6 +24,32 @@ Sample systemd unit file (`/etc/systemd/system/drawpile-listserver.service`):
 	[Install]
 	WantedBy=multi-user.target
 
+## Configuration
+
+See `example.cfg` for a sample configuration with all the possible settings.
+Typically, you only need to set those you need.
+
+The list server supports three different kinds of listings:
+
+1. Public announcements
+2. Private listings (accesssible via room code only)
+3. Live server sessions
+
+If the `includeservers` config key is set, listserver will use drawpile-srv's
+web admin API to fetch that server's session list and include it in the results.
+
+If no `database` is configured, listserver will be in read-only mode: sessions
+cannot be listed manually, but it will show sessions fetched directly from a server.
+(Note that you should always enable at least one of these options: otherwise listserver does nothing.)
+
+At a minimum you should set the following configuration settings:
+
+ * `listen` (the server's local address)
+ * `database` and/or `includeservers` (what to list)
+ * `name` the short name of the list server shown to the user
+ * `description` a short description of this server shown to the user
+ * `remoteAddressHeader` since you will most likely be using nginx or apache in front of this server
+
 ## Using with nginx
 
 In your nginx virtual host config, add a proxy pass location like this:

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/drawpile/listserver/db"
 	"github.com/drawpile/listserver/drawpile"
+	"github.com/drawpile/listserver/inclsrv"
 	"github.com/drawpile/listserver/validation"
 	"log"
 	"net/http"
@@ -23,6 +24,7 @@ type apiRootResponse struct {
 	Description string `json:"description"`
 	Favicon     string `json:"favicon,omitempty"`
 	Source      string `json:"source"`
+	Readonly    bool   `json:"read_only"`
 	Public      bool   `json:"public"`
 	Private     bool   `json:"private"`
 }
@@ -39,6 +41,8 @@ func RootEndpoint(ctx *apiContext) apiResponse {
 		return methodNotAllowedResponse{"GET"}
 	}
 
+	readonly := len(ctx.cfg.Database) == 0
+
 	return apiRootResponse{
 		ApiName:     "drawpile-session-list",
 		Version:     "1.6",
@@ -46,8 +50,9 @@ func RootEndpoint(ctx *apiContext) apiResponse {
 		Description: ctx.cfg.Description,
 		Favicon:     ctx.cfg.Favicon,
 		Source:      "https://github.com/drawpile/listserver/",
+		Readonly:    readonly,
 		Public:      ctx.cfg.Public,
-		Private:     ctx.cfg.Roomcodes,
+		Private:     ctx.cfg.Roomcodes && !readonly,
 	}
 }
 
@@ -111,10 +116,28 @@ func getSessionList(ctx *apiContext) apiResponse {
 		Nsfm:     ctx.query.Get("nsfm") == "true",
 		Protocol: ctx.query.Get("protocol"),
 	}
-	list, err := db.QuerySessionList(opts, ctx.db)
-	if err != nil {
+
+	var list []db.SessionInfo
+	if len(ctx.cfg.Database) > 0 {
+		var err error
+		list, err = db.QuerySessionList(opts, ctx.db)
+		if err != nil {
+			return internalServerError()
+		}
+	}
+
+	if len(ctx.cfg.IncludeServers) > 0 {
+		list = inclsrv.MergeLists(
+			list,
+			inclsrv.FetchCachedSessionLists(ctx.cfg.IncludeServers, opts, ctx.cache),
+		)
+	}
+
+	if list == nil {
+		log.Println("Neither database nor included servers configured!")
 		return internalServerError()
 	}
+
 	return SessionListResponse{list, ctx.query.Get("callback")}
 }
 

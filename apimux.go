@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/drawpile/listserver/ratelimit"
+	"github.com/patrickmn/go-cache"
 	"log"
 	"net"
 	"net/http"
@@ -17,6 +18,7 @@ type apiMux struct {
 	*http.ServeMux
 	cfg         *config
 	db          *sql.DB
+	cache       *cache.Cache
 	ratelimiter *ratelimit.BucketMap
 }
 
@@ -30,6 +32,7 @@ type apiContext struct {
 	updateKey string
 	cfg       *config
 	db        *sql.DB
+	cache     *cache.Cache
 }
 
 func getRemoteAddr(header string, req *http.Request) (remoteAddr net.IP) {
@@ -92,6 +95,7 @@ func (mux *apiMux) HandleApiEndpoint(prefix string, endPoint func(*apiContext) a
 					updateKey: req.Header.Get("X-Update-Key"),
 					cfg:       mux.cfg,
 					db:        mux.db,
+					cache:     mux.cache,
 				}
 
 				if req.Method == "GET" {

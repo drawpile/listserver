@@ -7,7 +7,7 @@ import (
 
 func InitDatabase(dbname string) (db *sql.DB) {
 	if len(dbname) == 0 {
-		log.Fatal("No database connection configuration")
+		return nil
 	}
 
 	db, err := sql.Open("postgres", dbname)
