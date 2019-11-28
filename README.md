@@ -2,13 +2,20 @@
 
 This server provides a simple RESTful API for publicly listing Drawpile sessions.
 
+It does two things:
+
+1. Receive and list session announcements (the "List at" option in Drawpile's Host dialog)
+2. Proxy the live session list from a Drawpile server
+
+The listings served by listserver are shown in Drawpile's Join dialog and can also be shown on a website.
+
 ## Installation
 
 1. Install the listserver: `go get github.com/drawpile/listserver`
-2. Create a PostgreSQL database
-3. Initialize it with `doc/createdb.sql`
-4. Write a configuration file (see `example.cfg`)
-5. Run the listing server (`$GOPATH/bin/listserver`)
+2. Write a configuration file (see `example.cfg`)
+3. Run the listing server (`$GOPATH/bin/listserver -c myconfig.cfg`)
+
+(Optional steps: you can use PostgreSQL for persistent listings.)
 
 Sample systemd unit file (`/etc/systemd/system/drawpile-listserver.service`):
 
@@ -35,12 +42,12 @@ The list server supports three different kinds of listings:
 2. Private listings (accesssible via room code only)
 3. Live server sessions
 
-If the `includeservers` config key is set, listserver will use drawpile-srv's
+If the `includeServers` config key is set, listserver will use drawpile-srv's
 web admin API to fetch that server's session list and include it in the results.
 
-If no `database` is configured, listserver will be in read-only mode: sessions
-cannot be listed manually, but it will show sessions fetched directly from a server.
-(Note that you should always enable at least one of these options: otherwise listserver does nothing.)
+If `database` is set to `none`, listserver will be in read-only mode: sessions
+cannot be listed manually, but ones fetched directly from a server will be shown.
+(Note that you should always enable at least one of these options, as otherwise listserver does nothing.)
 
 At a minimum you should set the following configuration settings:
 
@@ -49,6 +56,13 @@ At a minimum you should set the following configuration settings:
  * `name` the short name of the list server shown to the user
  * `description` a short description of this server shown to the user
  * `remoteAddressHeader` since you will most likely be using nginx or apache in front of this server
+
+Tip: on the same domain as your drawpile-srv, add this meta tag to your /index.html:
+
+	<meta name="drawpile:list-server" content="https://your-list-server-url-here/">
+
+When you click "Add" in Drawpile's join dialog when your server is selected, Drawpile will
+fetch the root index page and automatically find and add the list server.
 
 ## Banning hosts
 
@@ -74,15 +88,4 @@ And set these settings in your listserver config file:
 The remote address header setting is critical: the remote address
 of the connection will be the address of the nginx server, so the
 original client address must be passed in the HTTP header.
-
-## Changelog
-
-2019-03-24 Version 1.5
-
- * Added CheckServer option: the list server can check if the listed address is actually running a reachable Drawpile server
-
-2017-02-15 Version 1.0
-
- * First release (succeeds the old PHP and Python based implementations)
- * Implements API spec version 1.2
 

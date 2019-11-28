@@ -1,24 +1,46 @@
 package db
 
 import (
-	"database/sql"
 	"log"
+	"strings"
 )
 
-func InitDatabase(dbname string) (db *sql.DB) {
-	if len(dbname) == 0 {
+type Database interface {
+	init(name string, sessionTimeout int) error
+
+	SessionTimeoutMinutes() int
+	QuerySessionList(opts QueryOptions) ([]SessionInfo, error)
+	QuerySessionByRoomcode(roomcode string) (JoinSessionInfo, error)
+	IsActiveSession(host, id string, port int) (bool, error)
+	GetHostSessionCount(host string) (int, error)
+	IsBannedHost(host string) (bool, error)
+	InsertSession(session SessionInfo, clientIp string) (NewSessionInfo, error)
+	AssignRoomcode(listingId int) (string, error)
+	RefreshSession(refreshFields map[string]interface{}, listingId int, updateKey string) error
+	DeleteSession(listingId int, updateKey string) (bool, error)
+}
+
+func InitDatabase(dbname string, sessionTimeout int) Database {
+	if len(dbname) == 0 || dbname == "none" {
 		return nil
 	}
 
-	db, err := sql.Open("postgres", dbname)
-	if err != nil {
-		log.Fatal(err)
+	if sessionTimeout < 2 {
+		log.Fatal("Session timeout should be at least 2 minutes")
+		return nil
 	}
 
-	err = db.Ping()
-	if err != nil {
-		log.Fatal(err)
+	var db Database
+	if strings.HasPrefix(dbname, "postgres:") {
+		db = &postgresDb{}
+	} else if dbname == "memory" {
+		db = &memoryDb{}
 	}
 
-	return
+	if err := db.init(dbname, sessionTimeout); err != nil {
+		log.Fatal(err)
+		return nil
+	}
+
+	return db
 }

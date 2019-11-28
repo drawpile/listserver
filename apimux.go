@@ -1,9 +1,9 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/drawpile/listserver/db"
 	"github.com/drawpile/listserver/ratelimit"
 	"github.com/patrickmn/go-cache"
 	"log"
@@ -17,7 +17,7 @@ import (
 type apiMux struct {
 	*http.ServeMux
 	cfg         *config
-	db          *sql.DB
+	db          db.Database
 	cache       *cache.Cache
 	ratelimiter *ratelimit.BucketMap
 }
@@ -32,7 +32,7 @@ type apiContext struct {
 	clientIP  net.IP
 	updateKey string
 	cfg       *config
-	db        *sql.DB
+	db        db.Database
 	cache     *cache.Cache
 }
 

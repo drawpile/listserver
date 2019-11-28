@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/BurntSushi/toml"
+	"os"
 	"strings"
 )
 
@@ -26,6 +27,7 @@ type config struct {
 	Public                  bool
 	Roomcodes               bool
 	CheckServer             bool
+	SessionTimeout          int
 }
 
 func (c *config) IsTrustedHost(host string) bool {
@@ -58,13 +60,18 @@ func (c *config) ContainsNsfmWords(str string) bool {
 }
 
 func defaultConfig() *config {
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "Unconfigured server"
+	}
+
 	return &config{
 		Listen:                  "localhost:8080",
 		IncludeServers:          []string{},
 		AllowOrigins:            []string{"*"},
-		Database:                "",
-		Name:                    "test",
-		Description:             "Test server",
+		Database:                "memory",
+		Name:                    hostname,
+		Description:             "A Drawpile listing server",
 		Favicon:                 "",
 		Welcome:                 "",
 		NsfmWords:               []string{"18+", "NSFW", "NSFM"},
@@ -79,6 +86,7 @@ func defaultConfig() *config {
 		Public:                  true,
 		Roomcodes:               true,
 		CheckServer:             true,
+		SessionTimeout:          10,
 	}
 }
 

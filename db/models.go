@@ -34,9 +34,9 @@ func (info SessionInfo) HostAddress() string {
 
 // Minimum info needed to join a session
 type JoinSessionInfo struct {
-	Host      string   `json:"host"`
-	Port      int      `json:"port"`
-	Id        string   `json:"id"`
+	Host string `json:"host"`
+	Port int    `json:"port"`
+	Id   string `json:"id"`
 }
 
 // Info about a newly inserted session
@@ -45,4 +45,11 @@ type NewSessionInfo struct {
 	UpdateKey string `json:"key"`
 	Private   bool   `json:"private"`
 	Roomcode  string `json:"roomcode,omitempty"`
+}
+
+// Session list querying options
+type QueryOptions struct {
+	Title    string // filter by title
+	Nsfm     bool   // show NSFM sessions
+	Protocol string // filter by protocol version (comma separated list accepted)
 }

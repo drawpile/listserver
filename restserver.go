@@ -1,7 +1,7 @@
 package main
 
 import (
-	"database/sql"
+	"github.com/drawpile/listserver/db"
 	"github.com/drawpile/listserver/ratelimit"
 	"github.com/patrickmn/go-cache"
 	"log"
@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-func StartServer(cfg *config, db *sql.DB) {
+func StartServer(cfg *config, database db.Database) {
 	mux := &apiMux{
 		http.NewServeMux(),
 		cfg,
-		db,
+		database,
 		cache.New(15*time.Second, 10*time.Minute),
 		ratelimit.NewBucketMap(),
 	}

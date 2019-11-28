@@ -55,6 +55,6 @@ func main() {
 	}
 
 	// Start the server
-	db := db.InitDatabase(cfg.Database)
+	db := db.InitDatabase(cfg.Database, cfg.SessionTimeout)
 	StartServer(cfg, db)
 }

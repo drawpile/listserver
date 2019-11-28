@@ -12,10 +12,10 @@ import time
 from announce import make_random_announcement
 from update import update_announcement, unlist_announcement
 
-def run_test(server_url):
+def run_test(server_url, host=''):
     # First, create the announcement
     print ("Announcing random session at", server_url)
-    code, response = make_random_announcement(server_url)
+    code, response = make_random_announcement(server_url, host=host)
 
     if code != 200:
         print("Error:", code, response)
@@ -36,7 +36,7 @@ def run_test(server_url):
 
     while True:
         try:
-            time.sleep(refresh * 60)
+            time.sleep(refresh * 60 + 30)
         except KeyboardInterrupt:
             break
         
@@ -72,7 +72,8 @@ def run_test(server_url):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("url", help="server URL")
+    parser.add_argument("--host", "-H", default='', help="Hostname to announce")
     args = parser.parse_args()
 
-    run_test(args.url)
+    run_test(args.url, host=args.host)
 

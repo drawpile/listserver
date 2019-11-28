@@ -1,28 +1,39 @@
 package db
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/base64"
-	"github.com/lib/pq"
-	"fmt"
-	"log"
-	"strings"
 	"errors"
+	"fmt"
+	"github.com/lib/pq"
+	"strings"
 )
 
-const SessionTimeout = 10
-const SessionTimeoutString = "'10 minutes'"
+type postgresDb struct {
+	connection     *sql.DB
+	timeoutString  string
+	timeoutMinutes int
+}
 
-type QueryOptions struct {
-	Title    string // filter by title
-	Nsfm     bool   // show NSFM sessions
-	Protocol string // filter by protocol version (comma separated list accepted)
+func (db *postgresDb) init(name string, sessionTimeout int) (err error) {
+	db.connection, err = sql.Open("postgres", name)
+
+	if err != nil {
+		return
+	}
+
+	db.timeoutMinutes = sessionTimeout
+	db.timeoutString = fmt.Sprintf("'%d minutes'", sessionTimeout)
+
+	err = db.connection.Ping()
+	return
+}
+
+func (db *postgresDb) SessionTimeoutMinutes() int {
+	return db.timeoutMinutes
 }
 
 // Get a list of sessions that match the given query parameters
-// Parameters:
-func QuerySessionList(opts QueryOptions, db *sql.DB) ([]SessionInfo, error) {
+func (db *postgresDb) QuerySessionList(opts QueryOptions) ([]SessionInfo, error) {
 	querySql := `
 	SELECT host, port, session_id, coalesce(roomcode, '') as roomcode, protocol, title, users, usernames, password, nsfm, owner,
 	to_char(started at time zone 'UTC', 'YYYY-MM-DD HH24:MI:ss') as started
@@ -30,7 +41,7 @@ func QuerySessionList(opts QueryOptions, db *sql.DB) ([]SessionInfo, error) {
 	WHERE last_active >= current_timestamp - $1::interval AND unlisted=false AND private=false
 	`
 
-	params := []interface{}{SessionTimeoutString}
+	params := []interface{}{db.timeoutString}
 
 	if len(opts.Title) > 0 {
 		querySql += fmt.Sprintf(" AND title ILIKE '%%' || $%d || '%%'", len(params)+1)
@@ -52,10 +63,9 @@ func QuerySessionList(opts QueryOptions, db *sql.DB) ([]SessionInfo, error) {
 	}
 
 	querySql += ` ORDER BY title, users ASC`
-	rows, err := db.Query(querySql, params...)
+	rows, err := db.connection.Query(querySql, params...)
 
 	if err != nil {
-		log.Println("Sesion list query error:", err)
 		return []SessionInfo{}, err
 	}
 	defer rows.Close()
@@ -73,7 +83,6 @@ func QuerySessionList(opts QueryOptions, db *sql.DB) ([]SessionInfo, error) {
 		}
 
 		if err != nil {
-			log.Println("Session list row error:", err)
 			return []SessionInfo{}, err
 		}
 
@@ -84,7 +93,7 @@ func QuerySessionList(opts QueryOptions, db *sql.DB) ([]SessionInfo, error) {
 }
 
 // Get the session matching the given room code (if it is still active)
-func QuerySessionByRoomcode(roomcode string, db *sql.DB) (JoinSessionInfo, error) {
+func (db *postgresDb) QuerySessionByRoomcode(roomcode string) (JoinSessionInfo, error) {
 	querySql := `
 	SELECT host, port, session_id
 	FROM sessions
@@ -93,10 +102,9 @@ func QuerySessionByRoomcode(roomcode string, db *sql.DB) (JoinSessionInfo, error
 	`
 
 	ses := JoinSessionInfo{}
-	rows, err := db.Query(querySql, SessionTimeoutString, roomcode)
+	rows, err := db.connection.Query(querySql, db.timeoutString, roomcode)
 
 	if err != nil {
-		log.Println("Sesion (roomcode) query error:", err)
 		return ses, err
 	}
 	defer rows.Close()
@@ -108,7 +116,6 @@ func QuerySessionByRoomcode(roomcode string, db *sql.DB) (JoinSessionInfo, error
 
 	err = rows.Scan(&ses.Host, &ses.Port, &ses.Id)
 	if err != nil {
-		log.Println("Session (roomcode) row error:", err)
 		return JoinSessionInfo{}, err
 	}
 
@@ -116,7 +123,7 @@ func QuerySessionByRoomcode(roomcode string, db *sql.DB) (JoinSessionInfo, error
 }
 
 // Is there an active announcement for this session
-func IsActiveSession(host, id string, port int, db *sql.DB) (bool, error) {
+func (db *postgresDb) IsActiveSession(host, id string, port int) (bool, error) {
 	querySql := `
 	SELECT exists(SELECT 1
 	FROM sessions
@@ -124,11 +131,10 @@ func IsActiveSession(host, id string, port int, db *sql.DB) (bool, error) {
 	AND unlisted=false
 	)`
 
-	params := []interface{}{host, port, id, SessionTimeoutString}
+	params := []interface{}{host, port, id, db.timeoutString}
 
 	var exists bool
-	if err := db.QueryRow(querySql, params...).Scan(&exists); err != nil {
-		log.Println("Active session query error:", err)
+	if err := db.connection.QueryRow(querySql, params...).Scan(&exists); err != nil {
 		return false, err
 	}
 
@@ -136,15 +142,14 @@ func IsActiveSession(host, id string, port int, db *sql.DB) (bool, error) {
 }
 
 // Get the number of active announcements on this server (all ports)
-func GetHostSessionCount(host string, db *sql.DB) (int, error) {
+func (db *postgresDb) GetHostSessionCount(host string) (int, error) {
 	querySql := `
 	SELECT COUNT(*) FROM sessions
 	WHERE host=$1 AND last_active >= current_timestamp - $2::interval AND unlisted=false
 	`
 
 	var count int
-	if err := db.QueryRow(querySql, host, SessionTimeoutString).Scan(&count); err != nil {
-		log.Println("Session count query error:", err)
+	if err := db.connection.QueryRow(querySql, host, db.timeoutString).Scan(&count); err != nil {
 		return 0, err
 	}
 
@@ -152,7 +157,7 @@ func GetHostSessionCount(host string, db *sql.DB) (int, error) {
 }
 
 // Check if the given host is on the ban list
-func IsBannedHost(host string, db *sql.DB) (bool, error) {
+func (db *postgresDb) IsBannedHost(host string) (bool, error) {
 	querySql := `
 	SELECT EXISTS(SELECT 1
 	FROM hostbans
@@ -160,44 +165,19 @@ func IsBannedHost(host string, db *sql.DB) (bool, error) {
 	)`
 
 	var banned bool
-	if err := db.QueryRow(querySql, host).Scan(&banned); err != nil {
-		log.Println("Banned host query error:", err)
+	if err := db.connection.QueryRow(querySql, host).Scan(&banned); err != nil {
 		return false, err
 	}
 	return banned, nil
 }
 
-// Generate a secure random string
-func generateUpdateKey() (string, error) {
-	keybytes := make([]byte, 128/8)
-	_, err := rand.Read(keybytes)
-	if err != nil {
-		return "", err
-	}
-	return base64.URLEncoding.EncodeToString(keybytes), nil
-}
-
-func generateRoomcode(length int) (string, error) {
-	randbytes := make([]byte, length)
-	_, err := rand.Read(randbytes)
-	if err != nil {
-		return "", err
-	}
-	code := make([]rune, length)
-	for i := range randbytes {
-		code[i] = rune(randbytes[i] % 26) + 'A'
-	}
-	return string(code), nil
-}
-
 // Insert a new session to the database
 // Note: this function does not validate the data;
 // that must be done before calling this
-func InsertSession(session SessionInfo, clientIp string, db *sql.DB) (NewSessionInfo, error) {
+func (db *postgresDb) InsertSession(session SessionInfo, clientIp string) (NewSessionInfo, error) {
 	var updateKey string
 	updateKey, err := generateUpdateKey()
 	if err != nil {
-		log.Println("Secure random generator failed:", err)
 		return NewSessionInfo{}, err
 	}
 
@@ -210,7 +190,7 @@ func InsertSession(session SessionInfo, clientIp string, db *sql.DB) (NewSession
 	`
 	var listingId int
 	usernames := strings.Join(session.Usernames, ",")
-	err = db.QueryRow(insertSql,
+	err = db.connection.QueryRow(insertSql,
 		&session.Host,
 		&session.Port,
 		&session.Id,
@@ -227,20 +207,19 @@ func InsertSession(session SessionInfo, clientIp string, db *sql.DB) (NewSession
 	).Scan(&listingId)
 
 	if err != nil {
-		log.Println("Session insert error:", err)
 		return NewSessionInfo{}, err
 	}
 
 	return NewSessionInfo{listingId, updateKey, session.Private, ""}, nil
 }
 
-func AssignRoomcode(listingId int, db *sql.DB) (string, error) {
+func (db *postgresDb) AssignRoomcode(listingId int) (string, error) {
 	for retry := 0; retry < 10; retry += 1 {
 		roomcode, err := generateRoomcode(5)
 		if err != nil {
 			return "", err
 		}
-		_, err = db.Exec("UPDATE sessions SET roomcode=$1 WHERE id=$2", roomcode, listingId)
+		_, err = db.connection.Exec("UPDATE sessions SET roomcode=$1 WHERE id=$2", roomcode, listingId)
 		if err != nil {
 			if pgerr, ok := err.(*pq.Error); ok {
 				// Unlikely, but can happen
@@ -258,47 +237,8 @@ func AssignRoomcode(listingId int, db *sql.DB) (string, error) {
 	return "", errors.New("Couldn't generate a unique room code")
 }
 
-type RefreshError struct {
-	message string
-}
-
-func (e RefreshError) Error() string {
-	return e.message
-}
-
-func optStringList(fields map[string]interface{}, name string) (string, bool) {
-	if value, ok := fields[name]; ok {
-		val, ok := value.([]string)
-		return strings.Join(val, ", "), ok
-	}
-	return "", false
-}
-func optString(fields map[string]interface{}, name string) (string, bool) {
-	if value, ok := fields[name]; ok {
-		val, ok := value.(string)
-		return val, ok
-	}
-	return "", false
-}
-
-func optInt(fields map[string]interface{}, name string) (int, bool) {
-	if value, ok := fields[name]; ok {
-		val, ok := value.(float64)
-		return int(val), ok
-	}
-	return 0, false
-}
-
-func optBool(fields map[string]interface{}, name string) (bool, bool) {
-	if value, ok := fields[name]; ok {
-		val, ok := value.(bool)
-		return val, ok
-	}
-	return false, false
-}
-
 // Refresh an announcement
-func RefreshSession(refreshFields map[string]interface{}, listingId int, updateKey string, db *sql.DB) error {
+func (db *postgresDb) RefreshSession(refreshFields map[string]interface{}, listingId int, updateKey string) error {
 	// First, make sure an active listing exists
 	querySql := `
 	SELECT exists(SELECT 1
@@ -307,11 +247,10 @@ func RefreshSession(refreshFields map[string]interface{}, listingId int, updateK
 	AND unlisted=false
 	)`
 
-	params := []interface{}{listingId, updateKey, SessionTimeoutString}
+	params := []interface{}{listingId, updateKey, db.timeoutString}
 
 	var exists bool
-	if err := db.QueryRow(querySql, params...).Scan(&exists); err != nil {
-		log.Println("Session refresh query error:", err)
+	if err := db.connection.QueryRow(querySql, params...).Scan(&exists); err != nil {
 		return err
 	}
 
@@ -337,7 +276,7 @@ func RefreshSession(refreshFields map[string]interface{}, listingId int, updateK
 
 	if val, ok := optStringList(refreshFields, "usernames"); ok {
 		querySql += fmt.Sprintf(", usernames=$%d", len(params)+1)
-		params = append(params, val)
+		params = append(params, strings.Join(val, ","))
 	}
 
 	if val, ok := optBool(refreshFields, "password"); ok {
@@ -359,29 +298,24 @@ func RefreshSession(refreshFields map[string]interface{}, listingId int, updateK
 	params = append(params, listingId)
 
 	// Execute update
-	_, err := db.Exec(querySql, params...)
-	if err != nil {
-		log.Println("Session refresh error:", err)
-	}
+	_, err := db.connection.Exec(querySql, params...)
 	return err
 }
 
 // Delete an announcement
-func DeleteSession(listingId int, updateKey string, db *sql.DB) (bool, error) {
+func (db *postgresDb) DeleteSession(listingId int, updateKey string) (bool, error) {
 	querySql := `
 	UPDATE sessions
 	SET unlisted=true
 	WHERE id=$1 AND update_key=$2 AND unlisted=false`
 
-	res, err := db.Exec(querySql, listingId, updateKey)
+	res, err := db.connection.Exec(querySql, listingId, updateKey)
 	if err != nil {
-		log.Println("Session delete error:", err)
 		return false, err
 	}
 
 	rows, err := res.RowsAffected()
 	if err != nil {
-		log.Println("Session delete error:", err)
 		return false, err
 	}
 	return rows > 0, nil
