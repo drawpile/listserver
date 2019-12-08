@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/BurntSushi/toml"
+	"github.com/kelseyhightower/envconfig"
 	"os"
 	"strings"
 )
@@ -97,7 +98,24 @@ func readConfigFile(path string) (*config, error) {
 		return nil, err
 	}
 
-	// Normalizations
+	doNormalizations(cfg)
+
+	return cfg, nil
+}
+
+func readEnv() (*config, error) {
+	cfg := defaultConfig()
+
+	if err := envconfig.Process("ls", cfg); err != nil {
+		return nil, err
+	}
+
+	doNormalizations(cfg)
+
+	return cfg, nil
+}
+
+func doNormalizations(cfg *config) {
 	for i, s := range cfg.NsfmWords {
 		cfg.NsfmWords[i] = strings.ToUpper(s)
 	}
@@ -105,6 +123,4 @@ func readConfigFile(path string) (*config, error) {
 	if cfg.MaxSessionsPerNamedHost < cfg.MaxSessionsPerHost {
 		cfg.MaxSessionsPerNamedHost = cfg.MaxSessionsPerHost
 	}
-
-	return cfg, nil
 }

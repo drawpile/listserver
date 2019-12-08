@@ -35,6 +35,9 @@ func InitDatabase(dbname string, sessionTimeout int) Database {
 		db = &postgresDb{}
 	} else if dbname == "memory" {
 		db = &memoryDb{}
+	} else {
+		log.Fatal("Unsupported database type: " + dbname)
+		return nil
 	}
 
 	if err := db.init(dbname, sessionTimeout); err != nil {

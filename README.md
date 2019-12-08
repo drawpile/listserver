@@ -17,6 +17,11 @@ The listings served by listserver are shown in Drawpile's Join dialog and can al
 
 (Optional steps: you can use PostgreSQL for persistent listings.)
 
+Alternatively, configuration can be passed as environment variables:
+
+    LS_LISTEN=localhost:8081 ./listserver
+
+
 Sample systemd unit file (`/etc/systemd/system/drawpile-listserver.service`):
 
 	[Unit]

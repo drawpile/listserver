@@ -33,16 +33,16 @@ func main() {
 
 	// Load configuration file
 	var cfg *config
+	var err error
 	if len(*cfgFile) > 0 {
-		var err error
 		cfg, err = readConfigFile(*cfgFile)
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
-
 	} else {
-		cfg = defaultConfig()
+		cfg, err = readEnv()
+	}
+
+	if err != nil {
+		log.Fatal(err)
+		return
 	}
 
 	// Overridable settings
