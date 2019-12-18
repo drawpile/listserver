@@ -54,6 +54,10 @@ func main() {
 		cfg.Database = *dbName
 	}
 
+	if cfg.Database == "none" {
+		cfg.Database = ""
+	}
+
 	// Start the server
 	db := db.InitDatabase(cfg.Database, cfg.SessionTimeout)
 	StartServer(cfg, db)
