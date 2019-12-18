@@ -36,7 +36,7 @@ func (db *postgresDb) SessionTimeoutMinutes() int {
 func (db *postgresDb) QuerySessionList(opts QueryOptions) ([]SessionInfo, error) {
 	querySql := `
 	SELECT host, port, session_id, coalesce(roomcode, '') as roomcode, protocol, title, users, usernames, password, nsfm, owner,
-	to_char(started at time zone 'UTC', 'YYYY-MM-DD HH24:MI:ss') as started
+	to_char(started at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:ss"Z"') as started
 	FROM sessions
 	WHERE last_active >= current_timestamp - $1::interval AND unlisted=false AND private=false
 	`

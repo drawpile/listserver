@@ -171,6 +171,8 @@ func (db *memoryDb) InsertSession(sessionInfo SessionInfo, clientIp string) (New
 	db.lastId += 1
 	listingId := db.lastId
 
+	sessionInfo.Started = time.Now().UTC().Format(time.RFC3339)
+
 	db.mutex.Lock()
 	db.sessions = append(db.sessions, session{
 		info:      sessionInfo,
