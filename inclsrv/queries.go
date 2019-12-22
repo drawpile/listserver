@@ -106,7 +106,7 @@ func filterSessionList(sessions []db.SessionInfo, opts db.QueryOptions) []db.Ses
 	for _, s := range sessions {
 		if
 			(opts.Title == "" || strings.Contains(s.Title, opts.Title)) &&
-			(opts.Nsfm == s.Nsfm) &&
+			(opts.Nsfm || !s.Nsfm) &&
 			(opts.Protocol == "" || strings.Contains(s.Protocol, opts.Protocol)) {
 
 			filtered = append(filtered, s)
