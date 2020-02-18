@@ -1,27 +1,26 @@
 package db
 
 import (
+	"context"
 	"log"
-	"strings"
 )
 
 type Database interface {
-	init(name string, sessionTimeout int) error
-
 	SessionTimeoutMinutes() int
-	QuerySessionList(opts QueryOptions) ([]SessionInfo, error)
-	QuerySessionByRoomcode(roomcode string) (JoinSessionInfo, error)
-	IsActiveSession(host, id string, port int) (bool, error)
-	GetHostSessionCount(host string) (int, error)
-	IsBannedHost(host string) (bool, error)
-	InsertSession(session SessionInfo, clientIp string) (NewSessionInfo, error)
-	AssignRoomcode(listingId int) (string, error)
-	RefreshSession(refreshFields map[string]interface{}, listingId int, updateKey string) error
-	DeleteSession(listingId int, updateKey string) (bool, error)
+	QuerySessionList(opts QueryOptions, ctx context.Context) ([]SessionInfo, error)
+	QuerySessionByRoomcode(roomcode string, ctx context.Context) (JoinSessionInfo, error)
+	IsActiveSession(host, id string, port int, ctx context.Context) (bool, error)
+	GetHostSessionCount(host string, ctx context.Context) (int, error)
+	IsBannedHost(host string, ctx context.Context) (bool, error)
+	InsertSession(session SessionInfo, clientIp string, ctx context.Context) (NewSessionInfo, error)
+	AssignRoomCode(listingId int64, ctx context.Context) (string, error)
+	RefreshSession(refreshFields map[string]interface{}, listingId int64, updateKey string, ctx context.Context) error
+	DeleteSession(listingId int64, updateKey string, ctx context.Context) (bool, error)
 }
 
 func InitDatabase(dbname string, sessionTimeout int) Database {
 	if len(dbname) == 0 || dbname == "none" {
+		log.Println("No datatabase used")
 		return nil
 	}
 
@@ -30,17 +29,9 @@ func InitDatabase(dbname string, sessionTimeout int) Database {
 		return nil
 	}
 
-	var db Database
-	if strings.HasPrefix(dbname, "postgres:") {
-		db = &postgresDb{}
-	} else if dbname == "memory" {
-		db = &memoryDb{}
-	} else {
-		log.Fatal("Unsupported database type: " + dbname)
-		return nil
-	}
-
-	if err := db.init(dbname, sessionTimeout); err != nil {
+	log.Printf("Using %s database\n", dbname)
+	db, err := newSqliteDb(dbname, sessionTimeout)
+	if err != nil {
 		log.Fatal(err)
 		return nil
 	}

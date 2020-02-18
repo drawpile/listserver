@@ -63,7 +63,7 @@ def print_table(sessions):
     print(table)
 
 def _age(timestr):
-    ts = datetime.datetime.strptime(timestr, '%Y-%m-%d %H:%M:%S')
+    ts = datetime.datetime.strptime(timestr, '%Y-%m-%dT%H:%M:%SZ')
     d = datetime.datetime.utcnow() - ts
 
     mins = d.seconds // 60

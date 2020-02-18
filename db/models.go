@@ -41,7 +41,7 @@ type JoinSessionInfo struct {
 
 // Info about a newly inserted session
 type NewSessionInfo struct {
-	ListingId int    `json:"id"`
+	ListingId int64  `json:"id"`
 	UpdateKey string `json:"key"`
 	Private   bool   `json:"private"`
 	Roomcode  string `json:"roomcode,omitempty"`

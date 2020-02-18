@@ -3,33 +3,16 @@ package main
 import (
 	"flag"
 	"github.com/drawpile/listserver/db"
-	"github.com/drawpile/listserver/drawpile"
-	_ "github.com/lib/pq"
 	"log"
-	"os"
 )
 
 func main() {
 	// Command line arguments (can be set in configuration file as well)
 	cfgFile := flag.String("c", "", "configuration file")
 	listenAddr := flag.String("l", "", "listening address")
-	dbName := flag.String("d", "", "database URL")
-	connectionTest := flag.String("t", "", "server URL (connection test mode)")
+	dbName := flag.String("d", "", "database path")
 
 	flag.Parse()
-
-	// Test mode
-	if len(*connectionTest) > 0 {
-		log.Print(*connectionTest, ": Test mode. Trying to connect...")
-		err := drawpile.TryProtoV4Login(*connectionTest)
-		if err != nil {
-			log.Print(*connectionTest, ": Couldn't connect: ", err)
-			os.Exit(1)
-		} else {
-			log.Print(*connectionTest, ": OK!")
-		}
-		return
-	}
 
 	// Load configuration file
 	var cfg *config
@@ -59,6 +42,5 @@ func main() {
 	}
 
 	// Start the server
-	db := db.InitDatabase(cfg.Database, cfg.SessionTimeout)
-	StartServer(cfg, db)
+	StartServer(cfg, db.InitDatabase(cfg.Database, cfg.SessionTimeout))
 }

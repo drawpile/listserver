@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"context"
 )
 
 /**
@@ -96,7 +97,7 @@ func SessionListEndpoint(ctx *apiContext) apiResponse {
 		}
 
 	} else {
-		id, err := strconv.Atoi(strings.TrimSuffix(ctx.path, "/"))
+		id, err := strconv.ParseInt(strings.TrimSuffix(ctx.path, "/"), 10, 64)
 		if err != nil {
 			return notFoundResponse()
 		}
@@ -121,7 +122,7 @@ func getSessionList(ctx *apiContext) apiResponse {
 	var list []db.SessionInfo
 	if len(ctx.cfg.Database) > 0 {
 		var err error
-		list, err = ctx.db.QuerySessionList(opts)
+		list, err = ctx.db.QuerySessionList(opts, context.TODO())
 		if err != nil {
 			log.Println("Session list query error:", err)
 			return internalServerError()
@@ -170,7 +171,7 @@ func RoomCodeEndpoint(ctx *apiContext) apiResponse {
 	}
 
 	if ctx.method == "GET" {
-		session, err := ctx.db.QuerySessionByRoomcode(code)
+		session, err := ctx.db.QuerySessionByRoomcode(code, context.TODO())
 		if err != nil {
 			log.Println("Roomcode query error:", err)
 			return internalServerError()
@@ -235,7 +236,7 @@ func postNewSession(ctx *apiContext) apiResponse {
 	// Make sure this host isn't banned
 
 	// Make sure this hasn't been announced yet
-	if isActive, err := ctx.db.IsActiveSession(info.Host, info.Id, info.Port); err != nil {
+	if isActive, err := ctx.db.IsActiveSession(info.Host, info.Id, info.Port, context.TODO()); err != nil {
 		log.Println("IsActive check error:", err)
 		return internalServerError()
 	} else if isActive {
@@ -246,7 +247,7 @@ func postNewSession(ctx *apiContext) apiResponse {
 	// Check per-host session limit
 	if !ctx.cfg.IsTrustedHost(info.Host) {
 
-		if banned, err := ctx.db.IsBannedHost(info.Host); banned {
+		if banned, err := ctx.db.IsBannedHost(info.Host, context.TODO()); banned {
 			return forbiddenResponse()
 		} else if err != nil {
 			log.Println("Banned host check error:", err)
@@ -260,7 +261,7 @@ func postNewSession(ctx *apiContext) apiResponse {
 			maxSessions = ctx.cfg.MaxSessionsPerHost
 		}
 
-		if count, err := ctx.db.GetHostSessionCount(info.Host); err != nil {
+		if count, err := ctx.db.GetHostSessionCount(info.Host, context.TODO()); err != nil {
 			log.Println("Session count query error:", err)
 			return internalServerError()
 		} else if count >= maxSessions {
@@ -281,7 +282,7 @@ func postNewSession(ctx *apiContext) apiResponse {
 	}
 
 	// Insert to database
-	newses, err := ctx.db.InsertSession(info, ctx.clientIP.String())
+	newses, err := ctx.db.InsertSession(info, ctx.clientIP.String(), context.TODO())
 	if err != nil {
 		log.Println("Session insertion error:", err)
 		return internalServerError()
@@ -289,7 +290,7 @@ func postNewSession(ctx *apiContext) apiResponse {
 
 	// Assign room code
 	if ctx.cfg.Roomcodes {
-		roomcode, err := ctx.db.AssignRoomcode(newses.ListingId)
+		roomcode, err := ctx.db.AssignRoomCode(newses.ListingId, context.TODO())
 		if err != nil {
 			log.Println("Warning: couldn't assign roomcode to listing", newses.ListingId, err)
 		} else {
@@ -330,13 +331,13 @@ func (r refreshResponse) WriteResponse(w http.ResponseWriter) {
 	writeJsonResponse(w, r, http.StatusOK)
 }
 
-func refreshSession(id int, ctx *apiContext) apiResponse {
+func refreshSession(id int64, ctx *apiContext) apiResponse {
 	var info map[string]interface{}
 	if err := ctx.body.Decode(&info); err != nil {
 		log.Println("Invalid session refresh body:", err)
 		return badRequestResponse("Unparseable JSON request body")
 	}
-	err := ctx.db.RefreshSession(info, id, ctx.updateKey)
+	err := ctx.db.RefreshSession(info, id, ctx.updateKey, context.TODO())
 	if err != nil {
 		if _, isRefreshError := err.(db.RefreshError); isRefreshError {
 			return notFoundResponse()
@@ -365,7 +366,7 @@ func batchRefreshSessions(ctx *apiContext) apiResponse {
 	idlist := make([]string, 0, len(refreshBatch))
 
 	for id, info := range refreshBatch {
-		sessionId, err := strconv.Atoi(id)
+		sessionId, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
 			return badRequestResponse(id + " is not an integer!")
 		}
@@ -380,7 +381,7 @@ func batchRefreshSessions(ctx *apiContext) apiResponse {
 			return badRequestResponse(id + ".updatekey: expected string")
 		}
 
-		err = ctx.db.RefreshSession(sessionInfo, sessionId, updateKey)
+		err = ctx.db.RefreshSession(sessionInfo, sessionId, updateKey, context.TODO())
 		if err != nil {
 			if _, isRefreshError := err.(db.RefreshError); isRefreshError {
 				responses[id] = "error"
@@ -398,8 +399,8 @@ func batchRefreshSessions(ctx *apiContext) apiResponse {
 	return refreshResponse{"ok", "", responses}
 }
 
-func deleteSession(id int, ctx *apiContext) apiResponse {
-	ok, err := ctx.db.DeleteSession(id, ctx.updateKey)
+func deleteSession(id int64, ctx *apiContext) apiResponse {
+	ok, err := ctx.db.DeleteSession(id, ctx.updateKey, context.TODO())
 
 	if err != nil {
 		log.Println("Session deletion error:", err)

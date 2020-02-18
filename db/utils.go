@@ -44,8 +44,14 @@ func optString(fields map[string]interface{}, name string) (string, bool) {
 
 func optInt(fields map[string]interface{}, name string) (int, bool) {
 	if value, ok := fields[name]; ok {
-		val, ok := value.(float64)
-		return int(val), ok
+		switch v := value.(type) {
+		case float64:
+			return int(v), true
+		case int:
+			return v, true
+		default:
+			return 0, false
+		}
 	}
 	return 0, false
 }
