@@ -22,13 +22,13 @@ type config struct {
 	MaxSessionsPerHost      int
 	MaxSessionsPerNamedHost int
 	TrustedHosts            []string
-	RemoteAddressHeader     string
-	CheckUserAgent          bool
+	ProxyHeaders            bool
 	WarnIpv6                bool
 	Public                  bool
 	Roomcodes               bool
 	CheckServer             bool
 	SessionTimeout          int
+	LogRequests             bool
 }
 
 func (c *config) IsTrustedHost(host string) bool {
@@ -38,16 +38,6 @@ func (c *config) IsTrustedHost(host string) bool {
 		}
 	}
 	return false
-}
-
-func (c *config) IsAllowedOrigin(origin string) string {
-	for _, ao := range c.AllowOrigins {
-		if ao == "*" || ao == origin {
-			return ao
-		}
-	}
-
-	return ""
 }
 
 func (c *config) ContainsNsfmWords(str string) bool {
@@ -81,13 +71,13 @@ func defaultConfig() *config {
 		MaxSessionsPerHost:      3,
 		MaxSessionsPerNamedHost: 10,
 		TrustedHosts:            []string{},
-		RemoteAddressHeader:     "",
-		CheckUserAgent:          false,
+		ProxyHeaders:            false,
 		WarnIpv6:                true,
 		Public:                  true,
 		Roomcodes:               true,
 		CheckServer:             true,
 		SessionTimeout:          10,
+		LogRequests:             false,
 	}
 }
 

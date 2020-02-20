@@ -15,8 +15,6 @@ The listings served by listserver are shown in Drawpile's Join dialog and can al
 2. Write a configuration file (see `example.cfg`)
 3. Run the listing server (`$GOPATH/bin/listserver -c myconfig.cfg`)
 
-(Optional steps: you can use PostgreSQL for persistent listings.)
-
 Alternatively, configuration can be passed as environment variables:
 
     LS_LISTEN=localhost:8081 ./listserver
@@ -26,8 +24,7 @@ Sample systemd unit file (`/etc/systemd/system/drawpile-listserver.service`):
 
 	[Unit]
 	Description=Drawpile session listing server
-	Requires=postgresql.service
-	After=network.target postgresql.service
+	After=network.target
 
 	[Service]
 	ExecStart=/home/website/go/bin/listserver -c /home/website/listserver.cfg
@@ -60,7 +57,7 @@ At a minimum you should set the following configuration settings:
  * `database` and/or `includeservers` (what to list)
  * `name` the short name of the list server shown to the user
  * `description` a short description of this server shown to the user
- * `remoteAddressHeader` since you will most likely be using nginx or apache in front of this server
+ * `proxyHeaders=true` since you will most likely be using nginx or apache in front of this server
 
 Tip: on the same domain as your drawpile-srv, add this meta tag to your /index.html:
 
@@ -88,9 +85,9 @@ In your nginx virtual host config, add a proxy pass location like this:
 And set these settings in your listserver config file:
 
 	listen = "127.0.0.1:8080"
-	remoteAddressHeader = "X-Real-Ip"
+	proxyHeaders = true
 
-The remote address header setting is critical: the remote address
+The proxyheaders setting is critical: the remote address
 of the connection will be the address of the nginx server, so the
 original client address must be passed in the HTTP header.
 

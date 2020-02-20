@@ -107,23 +107,6 @@ func TestProtocolWhitelistValidation(t *testing.T) {
 	}
 }
 
-func TestIsJsFunctionName(t *testing.T) {
-	tests := []TestPair{
-		{"", false},
-		{"fn", true},
-		{"0fn", false},
-		{"123", false},
-		{"alert(", false},
-		{"fn;fn2", false},
-		{"fn2", true},
-	}
-	for _, v := range tests {
-		if IsJsFunctionName(v.teststr) != v.valid {
-			t.Error("IsJsFunctionName(", v.teststr, ") returned", !v.valid)
-		}
-	}
-}
-
 func TestLocalIps(t *testing.T) {
 	ips := localIPs()
 

@@ -19,7 +19,7 @@ type Database interface {
 }
 
 func InitDatabase(dbname string, sessionTimeout int) Database {
-	if len(dbname) == 0 || dbname == "none" {
+	if len(dbname) == 0 {
 		log.Println("No datatabase used")
 		return nil
 	}
@@ -29,7 +29,7 @@ func InitDatabase(dbname string, sessionTimeout int) Database {
 		return nil
 	}
 
-	log.Printf("Using %s database\n", dbname)
+	log.Println("Using database:", dbname)
 	db, err := newSqliteDb(dbname, sessionTimeout)
 	if err != nil {
 		log.Fatal(err)

@@ -9,7 +9,6 @@ import (
 	"log"
 	"fmt"
 
-	"github.com/patrickmn/go-cache"
 	"github.com/drawpile/listserver/db"
 )
 
@@ -115,37 +114,21 @@ func filterSessionList(sessions []db.SessionInfo, opts db.QueryOptions) []db.Ses
 	return filtered
 }
 
-const cache_key = "included-sessions"
-
-func FetchCachedSessionLists(urls []string, opts db.QueryOptions, c *cache.Cache) []db.SessionInfo {
-
-	if len(urls) == 0 {
-		return []db.SessionInfo{}
-	}
-
+func FetchFilteredSessionLists(opts db.QueryOptions, urls ...string) []db.SessionInfo {
 	var sessions []db.SessionInfo
 
-	cachedSessions, found := c.Get(cache_key)
-
-	if found {
-		sessions = cachedSessions.([]db.SessionInfo)
-
-	} else {
-		sessions = []db.SessionInfo{}
-
-		for _, url := range urls {
-			ses, err := FetchServerSessionList(url)
-			if err != nil {
-				continue
-			}
-
+	for _, url := range urls {
+		ses, err := FetchServerSessionList(url)
+		if err != nil {
+			continue
+		}
+		ses = filterSessionList(ses, opts)
+		if len(ses) > 0 {
 			sessions = append(sessions, ses...)
 		}
-
-		c.Set(cache_key, sessions, cache.DefaultExpiration)
 	}
 
-	return filterSessionList(sessions, opts)
+	return sessions
 }
 
 func MergeLists(lists ...[]db.SessionInfo) []db.SessionInfo {

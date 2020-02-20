@@ -2,68 +2,47 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"strconv"
 )
 
-type apiResponse interface {
-	WriteResponse(http.ResponseWriter)
+type ResponseHandler func(*http.Request) http.Handler
+
+func (f ResponseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	f(r).ServeHTTP(w, r)
 }
 
-type genericErrorResponse struct {
-	Code    int
-	Message string
+type JsonResponseHandler struct {
+	Body       interface{}
+	StatusCode int
 }
 
-func (r genericErrorResponse) WriteResponse(w http.ResponseWriter) {
-	msg := make(map[string]string)
-	msg["status"] = "error"
-	msg["message"] = r.Message
-	writeJsonResponse(w, msg, r.Code)
-}
+func (jr JsonResponseHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+	content, err := json.MarshalIndent(jr.Body, "", "\t")
+	if err != nil {
+		log.Println("JSON response marshalling error:", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-func writeJsonResponse(w http.ResponseWriter, body interface{}, code int) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(code)
-	content, _ := json.MarshalIndent(body, "", "  ")
+	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+
+	w.WriteHeader(jr.StatusCode)
 	w.Write(content)
 }
 
-func notFoundResponse() genericErrorResponse {
-	return genericErrorResponse{http.StatusNotFound, "Not found"}
+func JsonResponseOk(body interface{}) JsonResponseHandler {
+	return JsonResponseHandler{body, http.StatusOK}
 }
 
-func forbiddenResponse() genericErrorResponse {
-	return genericErrorResponse{http.StatusForbidden, "Forbidden"}
-}
-
-func internalServerError() genericErrorResponse {
-	return genericErrorResponse{http.StatusInternalServerError, "Internal Server Error"}
-}
-
-func badRequestResponse(message string) genericErrorResponse {
-	return genericErrorResponse{http.StatusBadRequest, message}
-}
-
-func invalidDataResponse(message string) genericErrorResponse {
-	return genericErrorResponse{http.StatusUnprocessableEntity, message}
-}
-
-func conflictResponse(message string) genericErrorResponse {
-	return genericErrorResponse{http.StatusConflict, message}
-}
-
-type methodNotAllowedResponse struct {
-	allow string
-}
-
-func (r methodNotAllowedResponse) WriteResponse(w http.ResponseWriter) {
-	w.Header().Set("Allow", r.allow)
-	genericErrorResponse{http.StatusMethodNotAllowed, "Method not allowed"}.WriteResponse(w)
-}
-
-type noContentResponse struct {
-}
-
-func (r noContentResponse) WriteResponse(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusNoContent)
+func ErrorResponse(message string, status int) http.Handler {
+	return JsonResponseHandler{
+		Body: map[string]string{
+			"status":  "error",
+			"message": message,
+		},
+		StatusCode: status,
+	}
 }

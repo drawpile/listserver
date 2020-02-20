@@ -64,7 +64,7 @@ def run_test(server_url, host=''):
         announcement["key"]
         )
 
-    if code != 204:
+    if code not in (200, 204):
         print("Unlist error:", code, response)
         sys.exit(1)
 

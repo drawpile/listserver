@@ -1,231 +1,123 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/drawpile/listserver/db"
 	"github.com/drawpile/listserver/drawpile"
 	"github.com/drawpile/listserver/inclsrv"
 	"github.com/drawpile/listserver/validation"
+	"github.com/gorilla/mux"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
-	"unicode"
-	"context"
 )
 
-/**
- * API root: info about this server
- */
-type apiRootResponse struct {
-	ApiName     string `json:"api_name"`
-	Version     string `json:"version"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Favicon     string `json:"favicon,omitempty"`
-	Source      string `json:"source"`
-	Readonly    bool   `json:"read_only"`
-	Public      bool   `json:"public"`
-	Private     bool   `json:"private"`
-
-	allowOrigin string
-}
-
-func (r apiRootResponse) WriteResponse(w http.ResponseWriter) {
-	if len(r.allowOrigin) > 0 {
-		w.Header().Set("Access-Control-Allow-Origin", r.allowOrigin)
-	}
-	writeJsonResponse(w, r, http.StatusOK)
-}
-
-func RootEndpoint(ctx *apiContext) apiResponse {
-	if len(ctx.path) != 0 {
-		return notFoundResponse()
-	}
-	if ctx.method != "GET" {
-		return methodNotAllowedResponse{"GET"}
-	}
-
+//
+// Return info about this list server
+//
+func apiRootHandler(r *http.Request) http.Handler {
+	ctx := r.Context().Value(apiCtxKey).(apiContext)
 	readonly := len(ctx.cfg.Database) == 0
 
-	return apiRootResponse{
-		ApiName:     "drawpile-session-list",
-		Version:     "1.6",
-		Name:        ctx.cfg.Name,
-		Description: ctx.cfg.Description,
-		Favicon:     ctx.cfg.Favicon,
-		Source:      "https://github.com/drawpile/listserver/",
-		Readonly:    readonly,
-		Public:      ctx.cfg.Public,
-		Private:     ctx.cfg.Roomcodes && !readonly,
-		allowOrigin: ctx.cfg.IsAllowedOrigin(ctx.header.Get("Origin")),
-	}
+	return JsonResponseOk(map[string]interface{}{
+		"api_name":    "drawpile-session-list",
+		"version":     "1.6",
+		"name":        ctx.cfg.Name,
+		"description": ctx.cfg.Description,
+		"favicon":     ctx.cfg.Favicon,
+		"source":      "https://github.com/drawpile/listserver/",
+		"read_only":   readonly,
+		"public":      ctx.cfg.Public,
+		"private":     ctx.cfg.Roomcodes && !readonly,
+	})
 }
 
-/**
- * List and edit sessions
- */
-
-type SessionListResponse struct {
-	sessions    []db.SessionInfo
-	allowOrigin string
-}
-
-func (r SessionListResponse) WriteResponse(w http.ResponseWriter) {
-	if len(r.allowOrigin) > 0 {
-		w.Header().Set("Access-Control-Allow-Origin", r.allowOrigin)
-	}
-
-	writeJsonResponse(w, r.sessions, http.StatusOK)
-}
-
-func SessionListEndpoint(ctx *apiContext) apiResponse {
+//
+// Return the session list
+//
+func apiSessionListHandler(r *http.Request) http.Handler {
+	ctx := r.Context().Value(apiCtxKey).(apiContext)
 	if !ctx.cfg.Public {
-		return forbiddenResponse()
+		return ErrorResponse("No public listings on this server", http.StatusNotFound)
 	}
-	if len(ctx.path) == 0 {
-		if ctx.method == "GET" {
-			return getSessionList(ctx)
 
-		} else if ctx.method == "POST" {
-			return postNewSession(ctx)
-
-		} else if ctx.method == "PUT" {
-			return batchRefreshSessions(ctx)
-
-		} else {
-			return methodNotAllowedResponse{"GET, POST"}
-		}
-
-	} else {
-		id, err := strconv.ParseInt(strings.TrimSuffix(ctx.path, "/"), 10, 64)
-		if err != nil {
-			return notFoundResponse()
-		}
-
-		if ctx.method == "PUT" {
-			return refreshSession(id, ctx)
-		} else if ctx.method == "DELETE" {
-			return deleteSession(id, ctx)
-		} else {
-			return methodNotAllowedResponse{"PUT, DELETE"}
-		}
-	}
-}
-
-func getSessionList(ctx *apiContext) apiResponse {
 	opts := db.QueryOptions{
-		Title:    ctx.query.Get("title"),
-		Nsfm:     ctx.query.Get("nsfm") == "true",
-		Protocol: ctx.query.Get("protocol"),
+		Title:    r.Form.Get("title"),
+		Nsfm:     r.Form.Get("nsfm") == "true",
+		Protocol: r.Form.Get("protocol"),
 	}
 
 	var list []db.SessionInfo
-	if len(ctx.cfg.Database) > 0 {
-		var err error
-		list, err = ctx.db.QuerySessionList(opts, context.TODO())
+	var err error
+	if ctx.db != nil {
+		list, err = ctx.db.QuerySessionList(opts, r.Context())
 		if err != nil {
 			log.Println("Session list query error:", err)
-			return internalServerError()
+			return ErrorResponse("An error occurred while querying session list", http.StatusInternalServerError)
 		}
 	}
 
 	if len(ctx.cfg.IncludeServers) > 0 {
 		list = inclsrv.MergeLists(
 			list,
-			inclsrv.FetchCachedSessionLists(ctx.cfg.IncludeServers, opts, ctx.cache),
+			inclsrv.FetchFilteredSessionLists(opts, ctx.cfg.IncludeServers...),
 		)
 	}
 
 	if list == nil {
 		log.Println("Neither database nor included servers configured!")
-		return internalServerError()
+		return ErrorResponse("Server is misconfigured", http.StatusInternalServerError)
 	}
 
-	return SessionListResponse{
-		list,
-		ctx.cfg.IsAllowedOrigin(ctx.header.Get("Origin")),
-	}
+	return JsonResponseOk(list)
 }
 
-type SessionJoinResponse struct {
-	db.JoinSessionInfo
-}
+//
+// Announce a new session
+//
+func apiAnnounceSessionHandler(r *http.Request) http.Handler {
+	clientIP := parseIp(r.RemoteAddr)
 
-func (r SessionJoinResponse) WriteResponse(w http.ResponseWriter) {
-	writeJsonResponse(w, r, http.StatusOK)
-}
-
-func RoomCodeEndpoint(ctx *apiContext) apiResponse {
-	if !ctx.cfg.Roomcodes {
-		return forbiddenResponse()
+	if clientIP.IsUnspecified() {
+		log.Println("Couldn't parse IP address:", r.RemoteAddr)
+		return ErrorResponse("Server is misconfigured", http.StatusInternalServerError)
 	}
 
-	code := strings.TrimSuffix(ctx.path, "/")
-	if len(code) != 5 {
-		return notFoundResponse()
-	}
-	for _, r := range code {
-		if !unicode.IsLetter(r) {
-			return notFoundResponse()
-		}
-	}
+	ctx := r.Context().Value(apiCtxKey).(apiContext)
 
-	if ctx.method == "GET" {
-		session, err := ctx.db.QuerySessionByRoomcode(code, context.TODO())
-		if err != nil {
-			log.Println("Roomcode query error:", err)
-			return internalServerError()
-		}
-		if session.Host == "" {
-			return notFoundResponse()
-		}
-		return SessionJoinResponse{session}
-
-	} else {
-		return methodNotAllowedResponse{"GET"}
-	}
-}
-
-type announcementResponse struct {
-	*db.NewSessionInfo
-	Expires int    `json:"expires"`
-	Message string `json:"message,omitempty"`
-}
-
-func (r announcementResponse) WriteResponse(w http.ResponseWriter) {
-	writeJsonResponse(w, r, http.StatusOK)
-}
-
-func postNewSession(ctx *apiContext) apiResponse {
 	var info db.SessionInfo
-	if err := ctx.body.Decode(&info); err != nil {
-		log.Println("Invalid session announcement body:", err)
-		return badRequestResponse("Unparseable JSON request body")
+	if err := json.NewDecoder(r.Body).Decode(&info); err != nil {
+		return ErrorResponse("Unparseable JSON request body", http.StatusBadRequest)
 	}
 
-	// Check if public / private listing is enabled
-	if (info.Private && !ctx.cfg.Roomcodes) || (!info.Private && !ctx.cfg.Public) {
-		return forbiddenResponse()
+	// Check if listings are enabled
+	if info.Private && !ctx.cfg.Roomcodes {
+		return ErrorResponse("Private listings not enabled on this server", http.StatusNotFound)
+	}
+	if !info.Private && !ctx.cfg.Public {
+		return ErrorResponse("Public listings not enabled on this server", http.StatusNotFound)
 	}
 
-	// Validate
+	// Validate announcement
 	rules := validation.AnnouncementValidationRules{
-		ClientIP:            ctx.clientIP,
+		ClientIP:            clientIP,
 		AllowWellKnownPorts: ctx.cfg.AllowWellKnownPorts,
 		ProtocolWhitelist:   ctx.cfg.ProtocolWhitelist,
 	}
+
 	if err := validation.ValidateAnnouncement(info, rules); err != nil {
 		if _, isValidationError := err.(validation.ValidationError); isValidationError {
-			log.Println(ctx.clientIP, "invalid announcement:", err)
-			return invalidDataResponse(err.Error())
+			return ErrorResponse(err.Error(), http.StatusBadRequest)
 		} else {
-			return internalServerError()
+			return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
 		}
 	}
 
 	// Fill in default values
 	if len(info.Host) == 0 {
-		info.Host = ctx.clientIP.String()
+		info.Host = clientIP.String()
 	}
 	if info.Port == 0 {
 		info.Port = 27750
@@ -234,26 +126,23 @@ func postNewSession(ctx *apiContext) apiResponse {
 	info.Nsfm = info.Nsfm || ctx.cfg.ContainsNsfmWords(info.Title)
 
 	// Make sure this host isn't banned
+	if banned, err := ctx.db.IsBannedHost(info.Host, r.Context()); banned {
+		return ErrorResponse("This host is not allowed to announce here", http.StatusForbidden)
+	} else if err != nil {
+		return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
+	}
 
 	// Make sure this hasn't been announced yet
-	if isActive, err := ctx.db.IsActiveSession(info.Host, info.Id, info.Port, context.TODO()); err != nil {
+	if isActive, err := ctx.db.IsActiveSession(info.Host, info.Id, info.Port, r.Context()); err != nil {
 		log.Println("IsActive check error:", err)
-		return internalServerError()
+		return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
+
 	} else if isActive {
-		log.Println(ctx.clientIP, "tried to relist session", info.Id)
-		return conflictResponse("Session already listed")
+		return ErrorResponse("Session already listed", http.StatusBadRequest)
 	}
 
 	// Check per-host session limit
 	if !ctx.cfg.IsTrustedHost(info.Host) {
-
-		if banned, err := ctx.db.IsBannedHost(info.Host, context.TODO()); banned {
-			return forbiddenResponse()
-		} else if err != nil {
-			log.Println("Banned host check error:", err)
-			return internalServerError()
-		}
-
 		var maxSessions int
 		if validation.IsNamedHost(info.Host) {
 			maxSessions = ctx.cfg.MaxSessionsPerNamedHost
@@ -261,12 +150,10 @@ func postNewSession(ctx *apiContext) apiResponse {
 			maxSessions = ctx.cfg.MaxSessionsPerHost
 		}
 
-		if count, err := ctx.db.GetHostSessionCount(info.Host, context.TODO()); err != nil {
-			log.Println("Session count query error:", err)
-			return internalServerError()
+		if count, err := ctx.db.GetHostSessionCount(info.Host, r.Context()); err != nil {
+			return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
 		} else if count >= maxSessions {
-			log.Println(ctx.clientIP, "exceeded max. announcement count")
-			return conflictResponse("Max listing count exceeded for this host")
+			return ErrorResponse("Max listing count exceeded for this host", http.StatusBadRequest)
 		}
 
 		// Do a connectivity check only for hosts that use an IP address
@@ -276,36 +163,27 @@ func postNewSession(ctx *apiContext) apiResponse {
 		if ctx.cfg.CheckServer && !validation.IsNamedHost(info.Host) {
 			if err := drawpile.TryDrawpileLogin(info.HostAddress(), info.Protocol); err != nil {
 				log.Println(info.HostAddress(), "does not seem to be running a Drawpile server")
-				return conflictResponse(err.Error())
+				return ErrorResponse(err.Error(), http.StatusBadRequest)
 			}
 		}
 	}
 
 	// Insert to database
-	newses, err := ctx.db.InsertSession(info, ctx.clientIP.String(), context.TODO())
+	newses, err := ctx.db.InsertSession(info, clientIP.String(), r.Context())
 	if err != nil {
 		log.Println("Session insertion error:", err)
-		return internalServerError()
+		return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
 	}
 
 	// Assign room code
 	if ctx.cfg.Roomcodes {
-		roomcode, err := ctx.db.AssignRoomCode(newses.ListingId, context.TODO())
+		roomcode, err := ctx.db.AssignRoomCode(newses.ListingId, r.Context())
 		if err != nil {
 			log.Println("Warning: couldn't assign roomcode to listing", newses.ListingId, err)
 		} else {
 			newses.Roomcode = roomcode
 		}
 	}
-
-	var announcementType string
-	if newses.Private {
-		announcementType = "private"
-	} else {
-		announcementType = "public"
-	}
-
-	log.Println(ctx.clientIP, "announced", announcementType, "session", newses.ListingId, info.Host, info.Port, info.Id)
 
 	// Add a warning message if hostname is an IPv6 address
 	welcomeMsg := ctx.cfg.Welcome
@@ -314,52 +192,43 @@ func postNewSession(ctx *apiContext) apiResponse {
 		welcomeMsg = welcomeMsg + "\nNote: your host address is an IPv6 address. It may not be accessible by all users."
 	}
 
-	return announcementResponse{
+	return JsonResponseOk(announcementResponse{
 		&newses,
 		ctx.db.SessionTimeoutMinutes(),
 		welcomeMsg,
+	})
+}
+
+func parseIp(addr string) (remoteAddr net.IP) {
+	remoteAddr = net.ParseIP(addr)
+
+	if remoteAddr == nil {
+		// Remote address may be in format IP:port
+		sep := strings.LastIndex(addr, ":")
+		remoteAddr = net.ParseIP(addr[0:sep])
 	}
+	return
 }
 
-type refreshResponse struct {
-	Status    string                 `json:"status"`
-	Message   string                 `json:"message,omitempty"`
-	Responses map[string]interface{} `json:"responses,omitempty"`
+type announcementResponse struct {
+	*db.NewSessionInfo
+	Expires int    `json:"expires"`
+	Message string `json:"message,omitempty"`
 }
 
-func (r refreshResponse) WriteResponse(w http.ResponseWriter) {
-	writeJsonResponse(w, r, http.StatusOK)
-}
+///
+/// Batch refresh sessions
+///
+func apiBatchRefreshHandler(r *http.Request) http.Handler {
+	ctx := r.Context().Value(apiCtxKey).(apiContext)
 
-func refreshSession(id int64, ctx *apiContext) apiResponse {
-	var info map[string]interface{}
-	if err := ctx.body.Decode(&info); err != nil {
-		log.Println("Invalid session refresh body:", err)
-		return badRequestResponse("Unparseable JSON request body")
-	}
-	err := ctx.db.RefreshSession(info, id, ctx.updateKey, context.TODO())
-	if err != nil {
-		if _, isRefreshError := err.(db.RefreshError); isRefreshError {
-			return notFoundResponse()
-		} else {
-			log.Println("Session refresh error:", err)
-			return internalServerError()
-		}
-	}
-
-	log.Println(ctx.clientIP, "refreshed", id)
-	return refreshResponse{"ok", "", nil}
-}
-
-func batchRefreshSessions(ctx *apiContext) apiResponse {
 	var refreshBatch map[string]interface{}
-	if err := ctx.body.Decode(&refreshBatch); err != nil {
-		log.Println("Invalid batch refresh body:", err)
-		return badRequestResponse("Unparseable JSON request body")
+	if err := json.NewDecoder(r.Body).Decode(&refreshBatch); err != nil {
+		return ErrorResponse("Unparseable JSON request body", http.StatusBadRequest)
 	}
 
 	if len(refreshBatch) == 0 {
-		return badRequestResponse("At least one session should be included")
+		return ErrorResponse("At least one session should be included", http.StatusBadRequest)
 	}
 
 	responses := make(map[string]interface{})
@@ -368,26 +237,26 @@ func batchRefreshSessions(ctx *apiContext) apiResponse {
 	for id, info := range refreshBatch {
 		sessionId, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return badRequestResponse(id + " is not an integer!")
+			return ErrorResponse(id+" is not an integer", http.StatusBadRequest)
 		}
 
 		sessionInfo, ok := info.(map[string]interface{})
 		if !ok {
-			return badRequestResponse(id + ": expected object")
+			return ErrorResponse(id+": expected object", http.StatusBadRequest)
 		}
 
 		updateKey, ok := sessionInfo["updatekey"].(string)
 		if !ok {
-			return badRequestResponse(id + ".updatekey: expected string")
+			return ErrorResponse(id+".updatekey: expected string", http.StatusBadRequest)
 		}
 
-		err = ctx.db.RefreshSession(sessionInfo, sessionId, updateKey, context.TODO())
+		err = ctx.db.RefreshSession(sessionInfo, sessionId, updateKey, r.Context())
 		if err != nil {
 			if _, isRefreshError := err.(db.RefreshError); isRefreshError {
 				responses[id] = "error"
 			} else {
 				log.Println("Session batch refresh error:", err)
-				return internalServerError()
+				return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
 			}
 		} else {
 			responses[id] = "ok"
@@ -395,21 +264,88 @@ func batchRefreshSessions(ctx *apiContext) apiResponse {
 		}
 	}
 
-	log.Println(ctx.clientIP, "batch refreshed", idlist)
-	return refreshResponse{"ok", "", responses}
+	return JsonResponseOk(map[string]interface{}{
+		"status":    "ok",
+		"responses": responses,
+	})
 }
 
-func deleteSession(id int64, ctx *apiContext) apiResponse {
-	ok, err := ctx.db.DeleteSession(id, ctx.updateKey, context.TODO())
+//
+// Refresh a single announcement
+//
+func apiRefreshHandler(r *http.Request) http.Handler {
+	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	if err != nil {
+		panic(err)
+	}
+
+	ctx := r.Context().Value(apiCtxKey).(apiContext)
+
+	var info map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&info); err != nil {
+		return ErrorResponse("Unparseable JSON request body", http.StatusBadRequest)
+	}
+
+	err = ctx.db.RefreshSession(info, id, r.Header.Get("X-Update-Key"), r.Context())
+	if err != nil {
+		if _, isRefreshError := err.(db.RefreshError); isRefreshError {
+			return ErrorResponse("No such session", http.StatusNotFound)
+		} else {
+			log.Println("Session refresh error:", err)
+			return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
+		}
+	}
+
+	return JsonResponseOk(map[string]interface{}{
+		"status": "ok",
+	})
+}
+
+//
+// Unlist a session
+//
+func apiUnlistHandler(r *http.Request) http.Handler {
+	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	if err != nil {
+		panic(err)
+	}
+
+	ctx := r.Context().Value(apiCtxKey).(apiContext)
+
+	ok, err := ctx.db.DeleteSession(id, r.Header.Get("X-Update-Key"), r.Context())
 
 	if err != nil {
 		log.Println("Session deletion error:", err)
-		return internalServerError()
+		return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
 	}
+
 	if ok {
-		log.Println(ctx.clientIP, "delisted", id)
-		return noContentResponse{}
+		return JsonResponseOk(map[string]string{
+			"status": "ok",
+		})
 	} else {
-		return notFoundResponse()
+		return ErrorResponse("No such session", http.StatusNotFound)
 	}
+}
+
+//
+// Find a session by its roomcode
+//
+func apiRoomCodeHandler(r *http.Request) http.Handler {
+	ctx := r.Context().Value(apiCtxKey).(apiContext)
+
+	if !ctx.cfg.Roomcodes {
+		return ErrorResponse("No room codes on this server", http.StatusNotFound)
+	}
+
+	session, err := ctx.db.QuerySessionByRoomcode(mux.Vars(r)["code"], r.Context())
+	if err != nil {
+		log.Println("Roomcode query error:", err)
+		return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
+	}
+	if session.Host == "" {
+		return ErrorResponse("No such session", http.StatusNotFound)
+	}
+
+	return JsonResponseOk(session)
 }
