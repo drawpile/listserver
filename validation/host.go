@@ -3,6 +3,7 @@ package validation
 import (
 	"net"
 	"regexp"
+	"strings"
 )
 
 func ValidateHostname(hostname string, clientIp net.IP) error {
@@ -72,6 +73,26 @@ func IsNamedHost(hostname string) bool {
 	// a valid domain name.
 	m, _ := regexp.MatchString(`^.+\.[A-Za-z]+$`, hostname)
 	return m
+}
+
+// Check if the given hostname is found in the list of hostnames.
+// Hostname list should be in all lower case.
+// Wildcard prefix (*.example.com) is allowed in host list
+func IsHostInList(hostname string, hostlist []string) bool {
+	host := strings.ToLower(hostname)
+
+	for _, item := range hostlist {
+		if strings.HasPrefix(item, "*") {
+			if strings.HasSuffix(host, item[1:]) {
+				return true
+			}
+		} else {
+			if host == item {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func IsIpv6Address(address string) bool {

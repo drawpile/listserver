@@ -107,6 +107,29 @@ func TestProtocolWhitelistValidation(t *testing.T) {
 	}
 }
 
+func TestHostList(t *testing.T) {
+	testlist := []string{
+		"example.com",
+		"*.example.com",
+		"banned.com",
+	}
+
+	tests := []TestPair{
+		{"example.com", true},
+		{"another-example.com", false},
+		{"another.example.com", true},
+		{"banned.org", false},
+		{"banned.com", true},
+		{"BANNED.com", true},
+	}
+
+	for _, v := range tests {
+		if IsHostInList(v.teststr, testlist) != v.valid {
+			t.Error("IsHostInList(", v.teststr, ") returned", !v.valid)
+		}
+	}
+}
+
 func TestLocalIps(t *testing.T) {
 	ips := localIPs()
 

@@ -126,7 +126,7 @@ func apiAnnounceSessionHandler(r *http.Request) http.Handler {
 	info.Nsfm = info.Nsfm || ctx.cfg.ContainsNsfmWords(info.Title)
 
 	// Make sure this host isn't banned
-	if banned, err := ctx.db.IsBannedHost(info.Host, r.Context()); banned {
+	if banned, err := ctx.db.IsBannedHost(info.Host, r.Context()); banned || validation.IsHostInList(info.Host, ctx.cfg.BannedHosts) {
 		return ErrorResponse("This host is not allowed to announce here", http.StatusForbidden)
 	} else if err != nil {
 		return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
@@ -142,7 +142,7 @@ func apiAnnounceSessionHandler(r *http.Request) http.Handler {
 	}
 
 	// Check per-host session limit
-	if !ctx.cfg.IsTrustedHost(info.Host) {
+	if !validation.IsHostInList(info.Host, ctx.cfg.TrustedHosts) {
 		var maxSessions int
 		if validation.IsNamedHost(info.Host) {
 			maxSessions = ctx.cfg.MaxSessionsPerNamedHost

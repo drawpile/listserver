@@ -22,6 +22,7 @@ type config struct {
 	MaxSessionsPerHost      int
 	MaxSessionsPerNamedHost int
 	TrustedHosts            []string
+	BannedHosts             []string
 	ProxyHeaders            bool
 	WarnIpv6                bool
 	Public                  bool
@@ -71,6 +72,7 @@ func defaultConfig() *config {
 		MaxSessionsPerHost:      3,
 		MaxSessionsPerNamedHost: 10,
 		TrustedHosts:            []string{},
+		BannedHosts:             []string{},
 		ProxyHeaders:            false,
 		WarnIpv6:                true,
 		Public:                  true,

@@ -7,8 +7,8 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"log"
-	"os"
 	"net/http"
+	"os"
 )
 
 func main() {
