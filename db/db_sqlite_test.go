@@ -74,6 +74,9 @@ func TestQueryList(t *testing.T) {
 	if sessions[0].Title != "Example" {
 		t.Fatal("First item was not Example")
 	}
+	if sessions[0].Id != "demo2" {
+		t.Fatal("Wrong ID for first session!")
+	}
 
 	if sessions[1].Title != "Test" {
 		t.Fatal("Second item was not Test")

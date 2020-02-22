@@ -158,7 +158,7 @@ func (db *sqliteDb) QuerySessionList(opts QueryOptions, ctx context.Context) ([]
 		sessions = append(sessions, SessionInfo{
 			Host:      stmt.GetText("host"),
 			Port:      int(stmt.GetInt64("port")),
-			Id:        stmt.GetText("id"),
+			Id:        stmt.GetText("session_id"),
 			Protocol:  stmt.GetText("protocol"),
 			Title:     stmt.GetText("title"),
 			Users:     int(stmt.GetInt64("users")),
