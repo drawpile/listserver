@@ -43,6 +43,10 @@ func apiSessionListHandler(r *http.Request) http.Handler {
 		return ErrorResponse("No public listings on this server", http.StatusNotFound)
 	}
 
+	if err := r.ParseForm(); err != nil {
+		return ErrorResponse("Bad request", http.StatusBadRequest)
+	}
+
 	opts := db.QueryOptions{
 		Title:    r.Form.Get("title"),
 		Nsfm:     r.Form.Get("nsfm") == "true",
