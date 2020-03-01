@@ -33,6 +33,14 @@ type sessionServerResponse struct {
 	UserCount int
 }
 
+func (ssr *sessionServerResponse) AliasOrId() string {
+	if ssr.Alias != "" {
+		return ssr.Alias;
+	} else {
+		return ssr.Id;
+	}
+}
+
 func fetchJson(url string, v interface{}) error {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -83,7 +91,7 @@ func FetchServerSessionList(urlString string) ([]db.SessionInfo, error) {
 		sessions[i] = db.SessionInfo{
 			Host: info.Hostname,
 			Port: info.Port,
-			Id: v.Id,
+			Id: v.AliasOrId(),
 			Protocol: v.Protocol,
 			Title: v.Title,
 			Users: v.UserCount,
