@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/drawpile/listserver/db"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"time"
+
+	"github.com/drawpile/listserver/db"
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -95,16 +98,45 @@ func startServer(cfg *config, database db.Database) {
 		},
 	)
 
-	var server http.Handler
+	var handler http.Handler
 	if cfg.LogRequests {
-		server = handlers.LoggingHandler(os.Stdout, router)
+		handler = handlers.LoggingHandler(os.Stdout, router)
 	} else {
-		server = router
+		handler = router
 	}
 
 	if len(cfg.IncludeServers) > 0 {
 		log.Println("Including session from:", cfg.IncludeServers)
 	}
-	log.Println("Listening at", cfg.Listen)
-	log.Fatal(http.ListenAndServe(cfg.Listen, server))
+
+	c := make(chan os.Signal, 1)
+	srv := &http.Server{
+		Addr:    cfg.Listen,
+		Handler: handler,
+	}
+
+	go func() {
+		log.Println("Listening at", cfg.Listen)
+		if err := srv.ListenAndServe(); err != nil {
+			log.Println(err)
+		}
+		c <- os.Kill
+	}()
+
+	signal.Notify(c, os.Interrupt)
+	sig := <-c
+
+	// Interrupt is a clean shutdown, anything else should be an error.
+	if sig == os.Interrupt {
+		log.Println("Ate interrupt signal, shutting down...")
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.SessionTimeout)*time.Second)
+		defer cancel()
+		srv.Shutdown(ctx)
+		if err := database.Close(); err != nil {
+			log.Println("Error closing database:", err)
+		}
+		os.Exit(0)
+	} else {
+		log.Fatal("Fatal server error")
+	}
 }

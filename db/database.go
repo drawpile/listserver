@@ -16,6 +16,7 @@ type Database interface {
 	AssignRoomCode(listingId int64, ctx context.Context) (string, error)
 	RefreshSession(refreshFields map[string]interface{}, listingId int64, updateKey string, ctx context.Context) error
 	DeleteSession(listingId int64, updateKey string, ctx context.Context) (bool, error)
+	Close() error
 }
 
 func InitDatabase(dbname string, sessionTimeout int) Database {

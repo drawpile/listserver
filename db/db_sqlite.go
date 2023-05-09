@@ -2,11 +2,12 @@ package db
 
 import (
 	"context"
-	"crawshaw.io/sqlite"
-	"crawshaw.io/sqlite/sqlitex"
 	"fmt"
 	"strings"
 	"time"
+
+	"crawshaw.io/sqlite"
+	"crawshaw.io/sqlite/sqlitex"
 )
 
 type sqliteDb struct {
@@ -482,4 +483,8 @@ func (db *sqliteDb) DeleteSession(listingId int64, updateKey string, ctx context
 	}
 
 	return conn.Changes() > 0, nil
+}
+
+func (db *sqliteDb) Close() error {
+	return db.pool.Close()
 }

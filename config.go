@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/BurntSushi/toml"
-	"github.com/kelseyhightower/envconfig"
 	"os"
 	"strings"
+
+	"github.com/BurntSushi/toml"
+	"github.com/kelseyhightower/envconfig"
 )
 
 type config struct {
@@ -29,6 +30,7 @@ type config struct {
 	Roomcodes               bool
 	CheckServer             bool
 	SessionTimeout          int
+	ShutdownTimeout         int
 	LogRequests             bool
 }
 
@@ -79,6 +81,7 @@ func defaultConfig() *config {
 		Roomcodes:               true,
 		CheckServer:             true,
 		SessionTimeout:          10,
+		ShutdownTimeout:         1,
 		LogRequests:             false,
 	}
 }
