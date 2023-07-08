@@ -235,7 +235,7 @@ func TestBanList(t *testing.T) {
 
 	// Insert a few ban entries
 	conn := db.pool.Get(context.TODO())
-	sqlite_exec(conn, `INSERT INTO hostbans (host, expires) VALUES
+	sqliteExec(conn, `INSERT INTO hostbans (host, expires) VALUES
 		('banned1.com', '3000-01-01T00:00:00Z'),
 		('banned2.com', NULL),
 		('expired.com', '2000-01-01T00:00:00Z'),
@@ -256,7 +256,7 @@ func TestCleanup(t *testing.T) {
 
 	// Insert a few test entries
 	conn := db.pool.Get(context.TODO())
-	sqlite_exec(conn, `INSERT INTO sessions VALUES
+	sqliteExec(conn, `INSERT INTO sessions VALUES
 		('example.com', 27750, 'abc1', 'dp:0.1.2', 'Test1', 0, '', 0, 0, 'X', '0000-00-00', DATETIME('now'), 0, 'x', '127.0.0.1', NULL, 0),
 		('example.com', 27750, 'abc1', 'dp:0.1.2', 'Test1', 0, '', 0, 0, 'X', '0000-00-00', DATETIME('now'), 1, 'x', '127.0.0.1', NULL, 0),
 		('example.com', 27750, 'abc1', 'dp:0.1.2', 'Test1', 0, '', 0, 0, 'X', '0000-00-00', DATETIME('now', '-10 days'), 0, 'x', '127.0.0.1', NULL, 0)

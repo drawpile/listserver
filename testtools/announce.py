@@ -12,6 +12,7 @@ import sys
 import uuid
 import random
 import json
+import string
 
 def make_random_announcement(server_url, host='', port=27750, protocol='dp:4.20.1', nsfm=False, private=False, verbose=False):
     """Make a random announcement at the given server.
@@ -21,7 +22,8 @@ def make_random_announcement(server_url, host='', port=27750, protocol='dp:4.20.
     host       -- The host name to announce
     port       -- The port number to announce
     protocol   -- The protocol version to announce
-    verbose     -- If true, the request body is printed to stderr
+    verbose    -- If true, the request body is printed to stderr
+    title      -- Session title, "Test: " by default
 
     Returns:
     (response code, response body) tuple
@@ -34,7 +36,7 @@ def make_random_announcement(server_url, host='', port=27750, protocol='dp:4.20.
         'host': host,
         'port': port,
         'protocol': protocol,
-        'title': 'Test: ',
+        'title': "".join([random.choice(string.ascii_letters) for i in range(0, random.randint(3, 10))]),
         'users': random.randint(1,255),
         'password': random.randint(1, 3) == 1,
         'nsfm': nsfm,

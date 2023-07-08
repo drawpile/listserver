@@ -1,43 +1,43 @@
 package inclsrv
 
 import (
-	"net/http"
 	"encoding/json"
-	"io/ioutil"
-	"strings"
 	"errors"
-	"log"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"strings"
 
 	"github.com/drawpile/listserver/db"
 )
 
 type statusServerResponse struct {
 	Hostname string `json:"ext_host"`
-	Port int `json:"ext_port"`
+	Port     int    `json:"ext_port"`
 }
 
 type sessionServerResponse struct {
-	Alias string
-	Closed bool
-	Founder string
-	HasPassword bool
-	Id string
+	Alias        string
+	Closed       bool
+	Founder      string
+	HasPassword  bool
+	Id           string
 	MaxUserCount int
-	Nsfm bool
-	Persistent bool
-	Protocol string
-	Size int
-	StartTime string
-	Title string
-	UserCount int
+	Nsfm         bool
+	Persistent   bool
+	Protocol     string
+	Size         int
+	StartTime    string
+	Title        string
+	UserCount    int
 }
 
 func (ssr *sessionServerResponse) AliasOrId() string {
 	if ssr.Alias != "" {
-		return ssr.Alias;
+		return ssr.Alias
 	} else {
-		return ssr.Id;
+		return ssr.Id
 	}
 }
 
@@ -77,31 +77,73 @@ func FetchServerSessionList(urlString string) ([]db.SessionInfo, error) {
 	var err error
 	var info statusServerResponse
 
-	if err = fetchJson(urlString + "/status/", &info); err != nil {
+	if err = fetchJson(urlString+"/status/", &info); err != nil {
 		return nil, err
 	}
 
 	var listResponse []sessionServerResponse
-	if err = fetchJson(urlString + "/sessions/", &listResponse); err != nil {
+	if err = fetchJson(urlString+"/sessions/", &listResponse); err != nil {
 		return nil, err
 	}
 
 	sessions := make([]db.SessionInfo, len(listResponse))
 	for i, v := range listResponse {
 		sessions[i] = db.SessionInfo{
-			Host: info.Hostname,
-			Port: info.Port,
-			Id: v.AliasOrId(),
-			Protocol: v.Protocol,
-			Title: v.Title,
-			Users: v.UserCount,
+			Host:      info.Hostname,
+			Port:      info.Port,
+			Id:        v.AliasOrId(),
+			Protocol:  v.Protocol,
+			Title:     v.Title,
+			Users:     v.UserCount,
 			Usernames: []string{},
-			Password: v.HasPassword,
-			Nsfm: v.Nsfm,
-			Owner: v.Founder,
-			Started: v.StartTime,
-			Roomcode: "",
-			Private: false,
+			Password:  v.HasPassword,
+			Nsfm:      v.Nsfm,
+			Owner:     v.Founder,
+			Started:   v.StartTime,
+			Roomcode:  "",
+			Private:   false,
+			MaxUsers:  v.MaxUserCount,
+			Closed:    v.Closed,
+		}
+	}
+
+	return sessions, nil
+}
+
+// Fetch a list of sessions from the given Drawpile server admin API URLs.
+// A BASIC Auth username:password pair can be included in the URL if needed.
+func FetchServerAdminSessionList(urlString string) ([]db.AdminSession, error) {
+	var err error
+	var info statusServerResponse
+
+	if err = fetchJson(urlString+"/status/", &info); err != nil {
+		return nil, err
+	}
+
+	var listResponse []sessionServerResponse
+	if err = fetchJson(urlString+"/sessions/", &listResponse); err != nil {
+		return nil, err
+	}
+
+	sessions := make([]db.AdminSession, len(listResponse))
+	for i, v := range listResponse {
+		sessions[i] = db.AdminSession{
+			Host:      info.Hostname,
+			Port:      info.Port,
+			SessionId: v.Id,
+			Protocol:  v.Protocol,
+			Title:     v.Title,
+			Users:     v.UserCount,
+			Usernames: []string{},
+			Password:  v.HasPassword,
+			Nsfm:      v.Nsfm,
+			Owner:     v.Founder,
+			Started:   v.StartTime,
+			Alias:     v.Alias,
+			Private:   false,
+			MaxUsers:  v.MaxUserCount,
+			Closed:    v.Closed,
+			Included:  true,
 		}
 	}
 
@@ -111,8 +153,7 @@ func FetchServerSessionList(urlString string) ([]db.SessionInfo, error) {
 func filterSessionList(sessions []db.SessionInfo, opts db.QueryOptions) []db.SessionInfo {
 	filtered := []db.SessionInfo{}
 	for _, s := range sessions {
-		if
-			(opts.Title == "" || strings.Contains(s.Title, opts.Title)) &&
+		if (opts.Title == "" || strings.Contains(s.Title, opts.Title)) &&
 			(opts.Nsfm || !s.Nsfm) &&
 			(opts.Protocol == "" || strings.Contains(s.Protocol, opts.Protocol)) {
 
@@ -156,4 +197,3 @@ func MergeLists(lists ...[]db.SessionInfo) []db.SessionInfo {
 
 	return merged
 }
-

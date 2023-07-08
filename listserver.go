@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/drawpile/listserver/db"
@@ -53,8 +55,11 @@ func main() {
 		cfg.Database = ""
 	}
 
+	adminUser, _ := os.LookupEnv("DRAWPILE_LISTSERVER_USER")
+	adminPass, _ := os.LookupEnv("DRAWPILE_LISTSERVER_PASS")
+
 	// Start the server
-	startServer(cfg, db.InitDatabase(cfg.Database, cfg.SessionTimeout))
+	startServer(cfg, db.InitDatabase(cfg.Database, cfg.SessionTimeout), adminUser, adminPass)
 }
 
 type apiContext struct {
@@ -65,44 +70,108 @@ type apiContext struct {
 type apiContextKey = int
 
 const apiCtxKey = apiContextKey(0)
+const adminCtxKey = apiContextKey(1)
 
-func startServer(cfg *config, database db.Database) {
+func normalizeSlashesHandler(next http.Handler) http.Handler {
+	collapseSlashesRegexp := regexp.MustCompile("/{2,}")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := collapseSlashesRegexp.ReplaceAllString(r.URL.Path, "/")
+		if strings.HasSuffix(path, "/") {
+			r.URL.Path = path
+		} else {
+			r.URL.Path = path + "/"
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func startServer(cfg *config, database db.Database, adminUser string, adminPass string) {
 	apictx := apiContext{cfg, database}
 	router := mux.NewRouter()
-
-	router.Handle("/", ResponseHandler(apiRootHandler)).Methods(http.MethodGet, http.MethodOptions)
-	router.Handle("/sessions/", handlers.MethodHandler{
-		"GET":  ResponseHandler(apiSessionListHandler),
-		"POST": ResponseHandler(apiAnnounceSessionHandler),
-		"PUT":  ResponseHandler(apiBatchRefreshHandler),
-	})
-	router.Handle("/sessions/{id:[0-9]+}", handlers.MethodHandler{
-		"PUT":    ResponseHandler(apiRefreshHandler),
-		"DELETE": ResponseHandler(apiUnlistHandler),
-	})
-	router.Handle("/join/{code:[A-Z]{5}}", ResponseHandler(apiRoomCodeHandler)).Methods(http.MethodGet, http.MethodOptions)
 
 	if cfg.ProxyHeaders {
 		router.Use(handlers.ProxyHeaders)
 	}
 
-	router.Use(
-		handlers.CORS(
-			handlers.AllowedOrigins(cfg.AllowOrigins),
-			handlers.AllowedMethods([]string{"GET"}),
-		),
-		func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), apiCtxKey, apictx)))
-			})
-		},
-	)
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), apiCtxKey, apictx)))
+		})
+	})
 
-	var handler http.Handler
+	mainRouter := router.NewRoute().Subrouter()
+	mainRouter.Handle("/", ResponseHandler(apiRootHandler)).Methods(http.MethodGet, http.MethodOptions)
+	mainRouter.Handle("/sessions/", handlers.MethodHandler{
+		"GET":  ResponseHandler(apiSessionListHandler),
+		"POST": ResponseHandler(apiAnnounceSessionHandler),
+		"PUT":  ResponseHandler(apiBatchRefreshHandler),
+	})
+	mainRouter.Handle("/sessions/{id:[0-9]+}/", handlers.MethodHandler{
+		"PUT":    ResponseHandler(apiRefreshHandler),
+		"DELETE": ResponseHandler(apiUnlistHandler),
+	})
+	mainRouter.Handle("/join/{code:[A-Z]{5}}/",
+		ResponseHandler(apiRoomCodeHandler)).Methods(http.MethodGet, http.MethodOptions)
+
+	mainRouter.Use(handlers.CORS(
+		handlers.AllowedOrigins(cfg.AllowOrigins),
+		handlers.AllowedMethods([]string{http.MethodGet}),
+	))
+
+	if cfg.EnableAdminApi && database != nil {
+		adminRouter := router.PathPrefix("/admin").Subrouter()
+		adminRouter.Handle("/", handlers.MethodHandler{
+			"GET": ResponseHandler(apiAdminRootHandler),
+		})
+		adminRouter.Handle("/sessions/", handlers.MethodHandler{
+			"GET": ResponseHandler(apiAdminSessionListHandler),
+			"PUT": ResponseHandler(apiAdminSessionPutHandler),
+		})
+		adminRouter.Handle("/bans/", handlers.MethodHandler{
+			"GET":  ResponseHandler(apiAdminBanListHandler),
+			"POST": ResponseHandler(apiAdminBanCreateHandler),
+		})
+		adminRouter.Handle("/bans/{id:[0-9]+}/", handlers.MethodHandler{
+			"PUT":    ResponseHandler(apiAdminBanPutHandler),
+			"DELETE": ResponseHandler(apiAdminBanDeleteHandler),
+		})
+		adminRouter.Handle("/roles/", handlers.MethodHandler{
+			"GET":  ResponseHandler(apiAdminRoleListHandler),
+			"POST": ResponseHandler(apiAdminRoleCreateHandler),
+		})
+		adminRouter.Handle("/roles/{id:[0-9]+}/", handlers.MethodHandler{
+			"PUT":    ResponseHandler(apiAdminRolePutHandler),
+			"DELETE": ResponseHandler(apiAdminRoleDeleteHandler),
+		})
+		adminRouter.Handle("/users/", handlers.MethodHandler{
+			"GET":  ResponseHandler(apiAdminUserListHandler),
+			"POST": ResponseHandler(apiAdminUserCreateHandler),
+		})
+		adminRouter.Handle("/users/{id:[0-9]+}/", handlers.MethodHandler{
+			"PUT":    ResponseHandler(apiAdminUserPutHandler),
+			"DELETE": ResponseHandler(apiAdminUserDeleteHandler),
+		})
+		adminRouter.Handle("/users/self/password/", handlers.MethodHandler{
+			"PUT": ResponseHandler(apiAdminUserSelfPasswordPutHandler),
+		})
+
+		adminRouter.Use(handlers.CORS(
+			handlers.AllowedOrigins(cfg.AllowOrigins),
+			handlers.AllowedMethods([]string{
+				http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}),
+			handlers.AllowedHeaders([]string{"Authorization", "Content-Type"}),
+		))
+
+		aam := adminAuthMiddleware{
+			adminUser: adminUser,
+			adminPass: adminPass,
+		}
+		adminRouter.Use(aam.Middleware)
+	}
+
+	var handler http.Handler = normalizeSlashesHandler(router)
 	if cfg.LogRequests {
-		handler = handlers.LoggingHandler(os.Stdout, router)
-	} else {
-		handler = router
+		handler = handlers.LoggingHandler(os.Stdout, handler)
 	}
 
 	if len(cfg.IncludeServers) > 0 {

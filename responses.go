@@ -37,6 +37,10 @@ func JsonResponseOk(body interface{}) JsonResponseHandler {
 	return JsonResponseHandler{body, http.StatusOK}
 }
 
+func JsonResponseCreated(body interface{}) JsonResponseHandler {
+	return JsonResponseHandler{body, http.StatusCreated}
+}
+
 func ErrorResponse(message string, status int) http.Handler {
 	return JsonResponseHandler{
 		Body: map[string]string{
