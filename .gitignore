@@ -1,3 +1,8 @@
 .*
 listserver
-
+*.pyc
+__pycache__
+*.db
+*.db-shm
+*.db-wal
+*.cfg
