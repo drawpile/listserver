@@ -11,9 +11,9 @@ The listings served by listserver are shown in Drawpile's Join dialog and can al
 
 ## Installation
 
-1. Install the listserver: `go get github.com/drawpile/listserver`
-2. Write a configuration file (see `example.cfg`)
-3. Run the listing server (`$GOPATH/bin/listserver -c myconfig.cfg`)
+1. Install the listserver: `GO111MODULE=ON go get github.com/drawpile/listserver@latest`
+2. Write a configuration file, you can copy [example.cfg](example.cfg) and edit it
+3. Run the listing server: `~/go/bin/listserver -c myconfig.cfg`
 
 Alternatively, configuration can be passed as environment variables:
 
