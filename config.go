@@ -33,6 +33,7 @@ type config struct {
 	ShutdownTimeout         int
 	LogRequests             bool
 	EnableAdminApi          bool
+	IncludeCacheTtl         int
 }
 
 func (c *config) IsTrustedHost(host string) bool {
@@ -85,6 +86,7 @@ func defaultConfig() *config {
 		ShutdownTimeout:         1,
 		LogRequests:             false,
 		EnableAdminApi:          false,
+		IncludeCacheTtl:         0,
 	}
 }
 

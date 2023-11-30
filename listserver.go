@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/drawpile/listserver/db"
+	"github.com/drawpile/listserver/inclsrv"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
@@ -57,6 +58,8 @@ func main() {
 
 	adminUser, _ := os.LookupEnv("DRAWPILE_LISTSERVER_USER")
 	adminPass, _ := os.LookupEnv("DRAWPILE_LISTSERVER_PASS")
+
+	inclsrv.CacheTtl = time.Duration(cfg.IncludeCacheTtl * int(time.Second))
 
 	// Start the server
 	startServer(cfg, db.InitDatabase(cfg.Database, cfg.SessionTimeout), adminUser, adminPass)

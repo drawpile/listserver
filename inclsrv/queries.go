@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/drawpile/listserver/db"
 )
@@ -32,6 +34,15 @@ type sessionServerResponse struct {
 	Title        string
 	UserCount    int
 }
+
+type cachedSessionInfos struct {
+	Time        time.Time
+	SessionInfo []db.SessionInfo
+}
+
+var cache = map[string]cachedSessionInfos{}
+var cacheMutex = sync.Mutex{}
+var CacheTtl = time.Duration(0)
 
 func (ssr *sessionServerResponse) AliasOrId() string {
 	if ssr.Alias != "" {
@@ -73,7 +84,7 @@ func fetchJson(url string, v interface{}) error {
 
 // Fetch a list of sessions from the given Drawpile server admin API URLs.
 // A BASIC Auth username:password pair can be included in the URL if needed.
-func FetchServerSessionList(urlString string) ([]db.SessionInfo, error) {
+func fetchServerSessionList(urlString string) ([]db.SessionInfo, error) {
 	var err error
 	var info statusServerResponse
 
@@ -108,6 +119,41 @@ func FetchServerSessionList(urlString string) ([]db.SessionInfo, error) {
 	}
 
 	return sessions, nil
+}
+
+func getCached(urlString string) (cachedSessionInfos, bool) {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+	value, found := cache[urlString]
+	return value, found
+}
+
+func putCached(urlString string, sessions []db.SessionInfo) {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+	cache[urlString] = cachedSessionInfos{
+		Time:        time.Now(),
+		SessionInfo: sessions,
+	}
+}
+
+func cachedFetchServerSessionList(urlString string) ([]db.SessionInfo, error) {
+	if CacheTtl > 0 {
+		value, found := getCached(urlString)
+		if found && time.Now().Sub(value.Time) <= CacheTtl {
+			return value.SessionInfo, nil
+		}
+
+		sessions, err := fetchServerSessionList(urlString)
+		if err != nil {
+			return nil, err
+		}
+
+		putCached(urlString, sessions)
+		return sessions, nil
+	} else {
+		return fetchServerSessionList(urlString)
+	}
 }
 
 // Fetch a list of sessions from the given Drawpile server admin API URLs.
@@ -167,7 +213,7 @@ func FetchFilteredSessionLists(opts db.QueryOptions, urls ...string) []db.Sessio
 	var sessions []db.SessionInfo
 
 	for _, url := range urls {
-		ses, err := FetchServerSessionList(url)
+		ses, err := cachedFetchServerSessionList(url)
 		if err != nil {
 			continue
 		}
