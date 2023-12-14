@@ -122,4 +122,11 @@ func doNormalizations(cfg *config) {
 	if cfg.MaxSessionsPerNamedHost < cfg.MaxSessionsPerHost {
 		cfg.MaxSessionsPerNamedHost = cfg.MaxSessionsPerHost
 	}
+
+	for i, h := range cfg.BannedHosts {
+		cfg.BannedHosts[i] = strings.ToLower(h)
+	}
+	for i, h := range cfg.TrustedHosts {
+		cfg.TrustedHosts[i] = strings.ToLower(h)
+	}
 }

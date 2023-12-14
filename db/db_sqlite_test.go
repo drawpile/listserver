@@ -238,6 +238,7 @@ func TestBanList(t *testing.T) {
 	sqliteExec(conn, `INSERT INTO hostbans (host, expires) VALUES
 		('banned1.com', '3000-01-01T00:00:00Z'),
 		('banned2.com', NULL),
+		('BaNnEd3.cOm', NULL),
 		('expired.com', '2000-01-01T00:00:00Z'),
 		('rebanned.com', '2000-01-01T00:00:00Z'),
 		('rebanned.com', '3000-01-01T00:00:00Z')
@@ -246,6 +247,10 @@ func TestBanList(t *testing.T) {
 
 	tryIsBanned(t, db, "banned1.com", true)
 	tryIsBanned(t, db, "banned2.com", true)
+	tryIsBanned(t, db, "BANNED2.com", true)
+	tryIsBanned(t, db, "BaNnEd3.com", true)
+	tryIsBanned(t, db, "banned3.com", true)
+	tryIsBanned(t, db, "BANNED3.com", true)
 	tryIsBanned(t, db, "rebanned.com", true)
 	tryIsBanned(t, db, "expired.com", false)
 	tryIsBanned(t, db, "not-banned.com", false)

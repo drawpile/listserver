@@ -377,7 +377,7 @@ func (db *sqliteDb) IsBannedHost(host string, ctx context.Context) (bool, error)
 
 	stmt := conn.Prep(`SELECT EXISTS(SELECT 1
 	FROM hostbans
-	WHERE host=$host AND (expires IS NULL OR expires > DATETIME('now'))
+	WHERE host=$host COLLATE NOCASE AND (expires IS NULL OR expires > DATETIME('now'))
 	)`)
 	defer stmt.Reset()
 
