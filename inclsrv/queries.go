@@ -236,6 +236,7 @@ func FetchFilteredSessionLists(opts db.QueryOptions, urls ...string) []db.Sessio
 	for _, url := range urls {
 		ses, err := cachedFetchServerSessionList(url)
 		if err != nil {
+			log.Printf("Error including %v: %v\n", url, err)
 			continue
 		}
 		ses = filterSessionList(ses, opts)
