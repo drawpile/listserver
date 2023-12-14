@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func ValidateHostname(hostname string, clientIp net.IP) error {
+func ValidateHostname(hostname string, clientIp net.IP, hasValidHostKey bool) error {
 	isLocalIp := isLocalIp(clientIp)
 
 	// Empty hostname means we use the client IP
@@ -30,10 +30,11 @@ func ValidateHostname(hostname string, clientIp net.IP) error {
 		return ValidationError{"host", "Hostname lookup failed"}
 	}
 
-	// If client IP is localhost, allow any valid hostname
+	// If client IP is localhost or is explicitly trusted by using a host key
+	// that we gave to them, allow any valid hostname
 	// (We could have a list of allowed local hostnames, but generally
 	//  if the server is running on localhost, we can trust it.)
-	if isLocalIp {
+	if isLocalIp || hasValidHostKey {
 		return nil
 	}
 

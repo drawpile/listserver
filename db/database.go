@@ -12,6 +12,7 @@ type Database interface {
 	IsActiveSession(host, id string, port int, ctx context.Context) (bool, error)
 	GetHostSessionCount(host string, ctx context.Context) (int, error)
 	IsBannedHost(host string, ctx context.Context) (bool, error)
+	IsValidHostKey(host string, hostKey string, ctx context.Context) (bool, error)
 	InsertSession(session SessionInfo, clientIp string, ctx context.Context) (NewSessionInfo, error)
 	AssignRoomCode(listingId int64, ctx context.Context) (string, error)
 	RefreshSession(refreshFields map[string]interface{}, listingId int64, updateKey string, ctx context.Context) error

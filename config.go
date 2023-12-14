@@ -8,6 +8,11 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
+type hostKeyPair struct {
+	Host string
+	Key  string
+}
+
 type config struct {
 	Listen                  string
 	IncludeServers          []string
@@ -36,6 +41,7 @@ type config struct {
 	IncludeCacheTtl         int
 	IncludeStatusCacheTtl   int
 	IncludeTimeout          int
+	HostKeys                []hostKeyPair
 }
 
 func (c *config) IsTrustedHost(host string) bool {
@@ -91,6 +97,7 @@ func defaultConfig() *config {
 		IncludeCacheTtl:         0,
 		IncludeStatusCacheTtl:   0,
 		IncludeTimeout:          0,
+		HostKeys:                []hostKeyPair{},
 	}
 }
 

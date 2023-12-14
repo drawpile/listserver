@@ -108,11 +108,30 @@ func apiAnnounceSessionHandler(r *http.Request) http.Handler {
 		return ErrorResponse("Public listings not enabled on this server", http.StatusNotFound)
 	}
 
+	hasValidHostKey, errorResponse := func() (bool, http.Handler) {
+		hostKey := r.Header.Get("X-Drawpile-Host-Key")
+		for _, v := range ctx.cfg.HostKeys {
+			if v.Host == info.Host && v.Key == hostKey {
+				return true, nil
+			}
+		}
+		if valid, err := ctx.db.IsValidHostKey(info.Host, hostKey, r.Context()); err != nil {
+			return false, ErrorResponse("An internal error occurred", http.StatusInternalServerError)
+		} else if !valid {
+			return false, ErrorResponse("Invalid host key given", http.StatusBadRequest)
+		}
+		return true, nil
+	}()
+	if errorResponse != nil {
+		return errorResponse
+	}
+
 	// Validate announcement
 	rules := validation.AnnouncementValidationRules{
 		ClientIP:            clientIP,
 		AllowWellKnownPorts: ctx.cfg.AllowWellKnownPorts,
 		ProtocolWhitelist:   ctx.cfg.ProtocolWhitelist,
+		HasValidHostKey:     hasValidHostKey,
 	}
 
 	if err := validation.ValidateAnnouncement(info, rules); err != nil {

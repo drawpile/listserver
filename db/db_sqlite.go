@@ -64,6 +64,15 @@ func sqliteMigrationExists(conn *sqlite.Conn, migration int64) bool {
 	}
 }
 
+func sqliteInitHostKeys(conn *sqlite.Conn) {
+	sqliteExec(conn, `CREATE TABLE hostkeys (
+		id INTEGER PRIMARY KEY NOT NULL,
+		host TEXT NOT NULL,
+		key TEXT NOT NULL
+		);`)
+	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (2);`)
+}
+
 func sqliteInitDb(conn *sqlite.Conn) {
 	sqliteExec(conn, `CREATE TABLE migrations (
 		version INTEGER PRIMARY KEY NOT NULL
@@ -120,7 +129,8 @@ func sqliteInitDb(conn *sqlite.Conn) {
 		password_hash TEXT NOT NULL,
 		role INTEGER NOT NULL REFERENCES roles (id)
 		);`)
-	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (1), (2), (3);`)
+	sqliteInitHostKeys(conn)
+	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (1), (2), (3), (4);`)
 }
 
 func sqliteMigrateFromLegacyFormat(conn *sqlite.Conn) {
@@ -188,6 +198,10 @@ func newSqliteDb(dbname string, sessionTimeout int) (*sqliteDb, error) {
 		if !sqliteMigrationExists(conn, 3) {
 			log.Println("Applying database migration 3: allow web")
 			sqliteMigrateAllowWeb(conn)
+		}
+		if !sqliteMigrationExists(conn, 4) {
+			log.Println("Applying database migration 4: host keys")
+			sqliteInitHostKeys(conn)
 		}
 	} else if sqliteTableExists(conn, "sessions") {
 		log.Println("Applying database migrations")
@@ -429,6 +443,30 @@ func (db *sqliteDb) IsBannedHost(host string, ctx context.Context) (bool, error)
 
 	isBanned := stmt.ColumnInt(0) != 0
 	return isBanned, nil
+}
+
+func (db *sqliteDb) IsValidHostKey(host string, hostKey string, ctx context.Context) (bool, error) {
+	conn := db.pool.Get(ctx)
+	if conn == nil {
+		return false, fmt.Errorf("Connection not available")
+	}
+	defer db.pool.Put(conn)
+
+	stmt := conn.Prep(`SELECT EXISTS(SELECT 1 FROM hostkeys WHERE host = ? AND key = ?)`)
+	defer stmt.Reset()
+
+	stmt.BindText(1, host)
+	stmt.BindText(2, hostKey)
+
+	if hasRow, err := stmt.Step(); err != nil {
+		log.Println("IsValidHostKey error:", err)
+		return false, err
+	} else if !hasRow {
+		return false, fmt.Errorf("No row returned")
+	}
+
+	isValidHostKey := stmt.ColumnInt(0) != 0
+	return isValidHostKey, nil
 }
 
 // Insert a new session to the database

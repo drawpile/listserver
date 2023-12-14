@@ -34,7 +34,7 @@ func TestHostnameValidation(t *testing.T) {
 	}
 
 	for _, v := range tests {
-		if (ValidateHostname(v.teststr, testIp) == nil) != v.valid {
+		if (ValidateHostname(v.teststr, testIp, false) == nil) != v.valid {
 			t.Error("ValidateHostname(", v.teststr, testIp, ") returned", !v.valid)
 		}
 	}
@@ -53,7 +53,7 @@ func TestLocalHostnameValidation(t *testing.T) {
 	}
 
 	for _, v := range tests {
-		if (ValidateHostname(v.teststr, localIp) == nil) != v.valid {
+		if (ValidateHostname(v.teststr, localIp, false) == nil) != v.valid {
 			t.Error("ValidateHostname(", v.teststr, localIp, ") returned", !v.valid)
 		}
 	}

@@ -1,19 +1,21 @@
 package validation
 
 import (
-	"github.com/drawpile/listserver/db"
 	"net"
+
+	"github.com/drawpile/listserver/db"
 )
 
 type AnnouncementValidationRules struct {
 	ClientIP            net.IP
 	AllowWellKnownPorts bool
 	ProtocolWhitelist   []string
+	HasValidHostKey     bool
 }
 
 func ValidateAnnouncement(session db.SessionInfo, rules AnnouncementValidationRules) error {
 	// Hostname (if present) must be valid
-	if err := ValidateHostname(session.Host, rules.ClientIP); err != nil {
+	if err := ValidateHostname(session.Host, rules.ClientIP, rules.HasValidHostKey); err != nil {
 		return err
 	}
 
