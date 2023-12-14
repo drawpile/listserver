@@ -61,6 +61,7 @@ func main() {
 
 	inclsrv.CacheTtl = time.Duration(cfg.IncludeCacheTtl) * time.Second
 	inclsrv.StatusCacheTtl = time.Duration(cfg.IncludeStatusCacheTtl) * time.Second
+	inclsrv.Timeout = time.Duration(cfg.IncludeTimeout) * time.Second
 
 	// Start the server
 	startServer(cfg, db.InitDatabase(cfg.Database, cfg.SessionTimeout), adminUser, adminPass)

@@ -46,6 +46,7 @@ var cache = map[string]cachedSessionInfos{}
 var cacheMutex = sync.Mutex{}
 var CacheTtl = time.Duration(0)
 var StatusCacheTtl = time.Duration(0)
+var Timeout = time.Duration(0)
 
 func (ssr *sessionServerResponse) AliasOrId() string {
 	if ssr.Alias != "" {
@@ -56,7 +57,8 @@ func (ssr *sessionServerResponse) AliasOrId() string {
 }
 
 func fetchJson(url string, v interface{}) error {
-	resp, err := http.Get(url)
+	client := http.Client{Timeout: Timeout}
+	resp, err := client.Get(url)
 	if err != nil {
 		log.Println(url, "fetch error:", err)
 		return err

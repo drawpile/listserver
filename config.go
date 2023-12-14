@@ -35,6 +35,7 @@ type config struct {
 	EnableAdminApi          bool
 	IncludeCacheTtl         int
 	IncludeStatusCacheTtl   int
+	IncludeTimeout          int
 }
 
 func (c *config) IsTrustedHost(host string) bool {
@@ -89,6 +90,7 @@ func defaultConfig() *config {
 		EnableAdminApi:          false,
 		IncludeCacheTtl:         0,
 		IncludeStatusCacheTtl:   0,
+		IncludeTimeout:          0,
 	}
 }
 
