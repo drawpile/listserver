@@ -257,9 +257,9 @@ func TestCleanup(t *testing.T) {
 	// Insert a few test entries
 	conn := db.pool.Get(context.TODO())
 	sqliteExec(conn, `INSERT INTO sessions VALUES
-		('example.com', 27750, 'abc1', 'dp:0.1.2', 'Test1', 0, '', 0, 0, 'X', '0000-00-00', DATETIME('now'), 0, 'x', '127.0.0.1', NULL, 0),
-		('example.com', 27750, 'abc1', 'dp:0.1.2', 'Test1', 0, '', 0, 0, 'X', '0000-00-00', DATETIME('now'), 1, 'x', '127.0.0.1', NULL, 0),
-		('example.com', 27750, 'abc1', 'dp:0.1.2', 'Test1', 0, '', 0, 0, 'X', '0000-00-00', DATETIME('now', '-10 days'), 0, 'x', '127.0.0.1', NULL, 0)
+		(1, 'example.com', 27750, 'abc1', 'dp:0.1.2', 'Test1', 0, '', 0, 0, 'X', '0000-00-00', DATETIME('now'), 0, 'x', '127.0.0.1', NULL, 0, NULL, 255, 0),
+		(2, 'example.com', 27750, 'abc1', 'dp:0.1.2', 'Test1', 0, '', 0, 0, 'X', '0000-00-00', DATETIME('now'), 1, 'x', '127.0.0.1', NULL, 0, NULL, 32, 0),
+		(3, 'example.com', 27750, 'abc1', 'dp:0.1.2', 'Test1', 0, '', 0, 0, 'X', '0000-00-00', DATETIME('now', '-10 days'), 0, 'x', '127.0.0.1', NULL, 0, NULL, 8, 1)
 	`)
 	db.pool.Put(conn)
 
