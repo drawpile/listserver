@@ -37,12 +37,15 @@ type sessionServerResponse struct {
 
 type cachedSessionInfos struct {
 	Time        time.Time
+	Host        string
+	Port        int
 	SessionInfo []db.SessionInfo
 }
 
 var cache = map[string]cachedSessionInfos{}
 var cacheMutex = sync.Mutex{}
 var CacheTtl = time.Duration(0)
+var StatusCacheTtl = time.Duration(0)
 
 func (ssr *sessionServerResponse) AliasOrId() string {
 	if ssr.Alias != "" {
@@ -84,24 +87,28 @@ func fetchJson(url string, v interface{}) error {
 
 // Fetch a list of sessions from the given Drawpile server admin API URLs.
 // A BASIC Auth username:password pair can be included in the URL if needed.
-func fetchServerSessionList(urlString string) ([]db.SessionInfo, error) {
+func fetchServerSessionList(urlString string, host string, port int) ([]db.SessionInfo, string, int, error) {
 	var err error
-	var info statusServerResponse
 
-	if err = fetchJson(urlString+"/status/", &info); err != nil {
-		return nil, err
+	if host == "" {
+		var info statusServerResponse
+		if err = fetchJson(urlString+"/status/", &info); err != nil {
+			return nil, "", 0, err
+		}
+		host = info.Hostname
+		port = info.Port
 	}
 
 	var listResponse []sessionServerResponse
 	if err = fetchJson(urlString+"/sessions/", &listResponse); err != nil {
-		return nil, err
+		return nil, "", 0, err
 	}
 
 	sessions := make([]db.SessionInfo, len(listResponse))
 	for i, v := range listResponse {
 		sessions[i] = db.SessionInfo{
-			Host:      info.Hostname,
-			Port:      info.Port,
+			Host:      host,
+			Port:      port,
 			Id:        v.AliasOrId(),
 			Protocol:  v.Protocol,
 			Title:     v.Title,
@@ -118,7 +125,7 @@ func fetchServerSessionList(urlString string) ([]db.SessionInfo, error) {
 		}
 	}
 
-	return sessions, nil
+	return sessions, host, port, nil
 }
 
 func getCached(urlString string) (cachedSessionInfos, bool) {
@@ -128,31 +135,43 @@ func getCached(urlString string) (cachedSessionInfos, bool) {
 	return value, found
 }
 
-func putCached(urlString string, sessions []db.SessionInfo) {
+func putCached(urlString string, host string, port int, sessions []db.SessionInfo) {
 	cacheMutex.Lock()
 	defer cacheMutex.Unlock()
 	cache[urlString] = cachedSessionInfos{
 		Time:        time.Now(),
+		Host:        host,
+		Port:        port,
 		SessionInfo: sessions,
 	}
 }
 
 func cachedFetchServerSessionList(urlString string) ([]db.SessionInfo, error) {
 	if CacheTtl > 0 {
+		cachedHost := ""
+		cachedPort := 0
 		value, found := getCached(urlString)
-		if found && time.Now().Sub(value.Time) <= CacheTtl {
-			return value.SessionInfo, nil
+		if found {
+			dt := time.Now().Sub(value.Time)
+			if dt <= CacheTtl {
+				return value.SessionInfo, nil
+			}
+			if dt <= StatusCacheTtl {
+				cachedHost = value.Host
+				cachedPort = value.Port
+			}
 		}
 
-		sessions, err := fetchServerSessionList(urlString)
+		sessions, host, port, err := fetchServerSessionList(urlString, cachedHost, cachedPort)
 		if err != nil {
 			return nil, err
 		}
 
-		putCached(urlString, sessions)
+		putCached(urlString, host, port, sessions)
 		return sessions, nil
 	} else {
-		return fetchServerSessionList(urlString)
+		sessions, _, _, err := fetchServerSessionList(urlString, "", 0)
+		return sessions, err
 	}
 }
 

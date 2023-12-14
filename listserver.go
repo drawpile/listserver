@@ -59,7 +59,8 @@ func main() {
 	adminUser, _ := os.LookupEnv("DRAWPILE_LISTSERVER_USER")
 	adminPass, _ := os.LookupEnv("DRAWPILE_LISTSERVER_PASS")
 
-	inclsrv.CacheTtl = time.Duration(cfg.IncludeCacheTtl * int(time.Second))
+	inclsrv.CacheTtl = time.Duration(cfg.IncludeCacheTtl) * time.Second
+	inclsrv.StatusCacheTtl = time.Duration(cfg.IncludeStatusCacheTtl) * time.Second
 
 	// Start the server
 	startServer(cfg, db.InitDatabase(cfg.Database, cfg.SessionTimeout), adminUser, adminPass)

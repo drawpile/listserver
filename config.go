@@ -34,6 +34,7 @@ type config struct {
 	LogRequests             bool
 	EnableAdminApi          bool
 	IncludeCacheTtl         int
+	IncludeStatusCacheTtl   int
 }
 
 func (c *config) IsTrustedHost(host string) bool {
@@ -87,6 +88,7 @@ func defaultConfig() *config {
 		LogRequests:             false,
 		EnableAdminApi:          false,
 		IncludeCacheTtl:         0,
+		IncludeStatusCacheTtl:   0,
 	}
 }
 
@@ -128,5 +130,9 @@ func doNormalizations(cfg *config) {
 	}
 	for i, h := range cfg.TrustedHosts {
 		cfg.TrustedHosts[i] = strings.ToLower(h)
+	}
+
+	if cfg.IncludeStatusCacheTtl < cfg.IncludeCacheTtl {
+		cfg.IncludeStatusCacheTtl = cfg.IncludeCacheTtl
 	}
 }
