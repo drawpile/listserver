@@ -133,6 +133,11 @@ func apiAnnounceSessionHandler(r *http.Request) http.Handler {
 
 	info.Nsfm = info.Nsfm || ctx.cfg.ContainsNsfmWords(info.Title)
 
+	// Don't allow listing sessions on servers that are included anyway
+	if validation.IsHostInList(info.Host, inclsrv.IncludeHosts()) {
+		return ErrorResponse("Sessions from this host are already included in listings automatically", http.StatusBadRequest)
+	}
+
 	// Make sure this host isn't banned
 	if banned, err := ctx.db.IsBannedHost(info.Host, r.Context()); banned || validation.IsHostInList(info.Host, ctx.cfg.BannedHosts) {
 		return ErrorResponse("This host is not allowed to announce here", http.StatusForbidden)

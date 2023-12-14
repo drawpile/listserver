@@ -172,7 +172,8 @@ func cachedFetchServerSessionList(urlString string) ([]db.SessionInfo, error) {
 		putCached(urlString, host, port, sessions)
 		return sessions, nil
 	} else {
-		sessions, _, _, err := fetchServerSessionList(urlString, "", 0)
+		sessions, host, port, err := fetchServerSessionList(urlString, "", 0)
+		putCached(urlString, host, port, nil)
 		return sessions, err
 	}
 }
@@ -264,4 +265,14 @@ func MergeLists(lists ...[]db.SessionInfo) []db.SessionInfo {
 	}
 
 	return merged
+}
+
+func IncludeHosts() []string {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+	hosts := make([]string, len(cache))
+	for _, value := range cache {
+		hosts = append(hosts, strings.ToLower(value.Host))
+	}
+	return hosts
 }
