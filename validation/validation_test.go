@@ -160,6 +160,7 @@ func TestNamedHost(t *testing.T) {
 		{"example.com", true},
 		{"100.example.com", true},
 		{"192.168.1.com", true},
+		{"international.xn--12345", true},
 	}
 	for _, v := range tests {
 		if IsNamedHost(v.teststr) != v.valid {
