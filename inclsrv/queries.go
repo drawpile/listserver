@@ -42,6 +42,11 @@ type cachedSessionInfos struct {
 	SessionInfo []db.SessionInfo
 }
 
+type sessionFetchResult struct {
+	index    int
+	sessions []db.SessionInfo
+}
+
 var cache = map[string]cachedSessionInfos{}
 var cacheMutex = sync.Mutex{}
 var CacheTtl = time.Duration(0)
@@ -231,22 +236,61 @@ func filterSessionList(sessions []db.SessionInfo, opts db.QueryOptions) []db.Ses
 	return filtered
 }
 
-func FetchFilteredSessionLists(opts db.QueryOptions, urls ...string) []db.SessionInfo {
-	var sessions []db.SessionInfo
+func asyncFetchSessionList(opts db.QueryOptions, url string, ch chan sessionFetchResult, index int) {
+	defer func() {
+		if err := recover(); err != nil {
+			ch <- sessionFetchResult{index, nil}
+			log.Printf("Panic including %v: %v\n", url, err)
+		}
+	}()
+	ses, err := cachedFetchServerSessionList(url)
+	if err != nil {
+		log.Printf("Error including %v: %v\n", url, err)
+		ch <- sessionFetchResult{index, ses}
+	} else {
+		ch <- sessionFetchResult{index, filterSessionList(ses, opts)}
+	}
+}
 
-	for _, url := range urls {
-		ses, err := cachedFetchServerSessionList(url)
+func FetchFilteredSessionLists(opts db.QueryOptions, urls ...string) []db.SessionInfo {
+	urlCount := len(urls)
+	if urlCount == 0 {
+		return []db.SessionInfo{}
+	} else if urlCount == 1 {
+		url := urls[0]
+		sessions, err := cachedFetchServerSessionList(url)
 		if err != nil {
 			log.Printf("Error including %v: %v\n", url, err)
-			continue
+			return []db.SessionInfo{}
 		}
-		ses = filterSessionList(ses, opts)
-		if len(ses) > 0 {
-			sessions = append(sessions, ses...)
+		return filterSessionList(sessions, opts)
+	} else {
+		ch := make(chan sessionFetchResult, urlCount)
+		for index, url := range urls {
+			go asyncFetchSessionList(opts, url, ch, index)
 		}
-	}
 
-	return sessions
+		results := make([]sessionFetchResult, urlCount)
+		sessionCount := 0
+		for i := 0; i < urlCount; i++ {
+			result := <-ch
+			results[result.index] = result
+			if result.sessions != nil {
+				sessionCount += len(result.sessions)
+			}
+		}
+
+		if sessionCount == 0 {
+			return []db.SessionInfo{}
+		}
+		sessions := make([]db.SessionInfo, 0, sessionCount)
+		for _, result := range results {
+			if result.sessions != nil {
+				sessions = append(sessions, result.sessions...)
+			}
+		}
+		return sessions
+	}
 }
 
 func MergeLists(lists ...[]db.SessionInfo) []db.SessionInfo {
