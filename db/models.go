@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -9,21 +10,22 @@ import (
 // It is also used to insert new entries.
 // When inserting, the "Started" field is ignored and the current timestamp is used
 type SessionInfo struct {
-	Host      string   `json:"host"`
-	Port      int      `json:"port"`
-	Id        string   `json:"id"`
-	Protocol  string   `json:"protocol"`
-	Title     string   `json:"title"`
-	Users     int      `json:"users"`
-	MaxUsers  int      `json:"maxusers,omitempty"`
-	Usernames []string `json:"usernames"`
-	Password  bool     `json:"password"`
-	Nsfm      bool     `json:"nsfm"`
-	Owner     string   `json:"owner"`
-	Started   string   `json:"started"`
-	Roomcode  string   `json:"roomcode,omitempty"`
-	Private   bool     `json:"private,omitempty"`
-	Closed    bool     `json:"closed,omitempty"`
+	Host               string   `json:"host"`
+	Port               int      `json:"port"`
+	Id                 string   `json:"id"`
+	Protocol           string   `json:"protocol"`
+	Title              string   `json:"title"`
+	Users              int      `json:"users"`
+	MaxUsers           int      `json:"maxusers,omitempty"`
+	Usernames          []string `json:"usernames"`
+	Password           bool     `json:"password"`
+	Nsfm               bool     `json:"nsfm"`
+	Owner              string   `json:"owner"`
+	Started            string   `json:"started"`
+	Roomcode           string   `json:"roomcode,omitempty"`
+	Private            bool     `json:"private,omitempty"`
+	Closed             bool     `json:"closed,omitempty"`
+	ActiveDrawingUsers int      `json:"activedrawingusers"`
 }
 
 func (info SessionInfo) HostAddress() string {
@@ -32,6 +34,12 @@ func (info SessionInfo) HostAddress() string {
 	} else {
 		return fmt.Sprintf("%s:%d", info.Host, info.Port)
 	}
+}
+
+func (info *SessionInfo) UnmarshalJSON(data []byte) error {
+	info.ActiveDrawingUsers = -1
+	type jsonSessionInfo SessionInfo
+	return json.Unmarshal(data, (*jsonSessionInfo)(info))
 }
 
 // Minimum info needed to join a session
@@ -57,32 +65,33 @@ type QueryOptions struct {
 }
 
 type AdminSession struct {
-	Id           int64    `json:"id"`
-	Host         string   `json:"host"`
-	Port         int      `json:"port"`
-	SessionId    string   `json:"sessionid"`
-	Protocol     string   `json:"protocol"`
-	Title        string   `json:"title"`
-	Users        int      `json:"users"`
-	MaxUsers     int      `json:"maxusers,omitempty"`
-	Usernames    []string `json:"usernames"`
-	Password     bool     `json:"password"`
-	Nsfm         bool     `json:"nsfm"`
-	Owner        string   `json:"owner"`
-	Started      string   `json:"started"`
-	LastActive   string   `json:"lastactive"`
-	Unlisted     bool     `json:"unlisted"`
-	UpdateKey    string   `json:"updatekey"`
-	ClientIp     string   `json:"clientip"`
-	Roomcode     string   `json:"roomcode,omitempty"`
-	Alias        string   `json:"alias,omitempty"`
-	Private      bool     `json:"private,omitempty"`
-	UnlistReason string   `json:"unlistreason,omitempty"`
-	Kicked       bool     `json:"kicked"`
-	TimedOut     bool     `json:"timedout"`
-	Closed       bool     `json:"closed"`
-	Included     bool     `json:"included"`
-	Error        string   `json:"error,omitempty"`
+	Id                 int64    `json:"id"`
+	Host               string   `json:"host"`
+	Port               int      `json:"port"`
+	SessionId          string   `json:"sessionid"`
+	Protocol           string   `json:"protocol"`
+	Title              string   `json:"title"`
+	Users              int      `json:"users"`
+	MaxUsers           int      `json:"maxusers,omitempty"`
+	Usernames          []string `json:"usernames"`
+	Password           bool     `json:"password"`
+	Nsfm               bool     `json:"nsfm"`
+	Owner              string   `json:"owner"`
+	Started            string   `json:"started"`
+	LastActive         string   `json:"lastactive"`
+	Unlisted           bool     `json:"unlisted"`
+	UpdateKey          string   `json:"updatekey"`
+	ClientIp           string   `json:"clientip"`
+	Roomcode           string   `json:"roomcode,omitempty"`
+	Alias              string   `json:"alias,omitempty"`
+	Private            bool     `json:"private,omitempty"`
+	UnlistReason       string   `json:"unlistreason,omitempty"`
+	Kicked             bool     `json:"kicked"`
+	TimedOut           bool     `json:"timedout"`
+	Closed             bool     `json:"closed"`
+	Included           bool     `json:"included"`
+	Error              string   `json:"error,omitempty"`
+	ActiveDrawingUsers int      `json:"activedrawingusers"`
 }
 
 type AdminHostBan struct {

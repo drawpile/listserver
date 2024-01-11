@@ -20,19 +20,20 @@ type statusServerResponse struct {
 }
 
 type sessionServerResponse struct {
-	Alias        string
-	Closed       bool
-	Founder      string
-	HasPassword  bool
-	Id           string
-	MaxUserCount int
-	Nsfm         bool
-	Persistent   bool
-	Protocol     string
-	Size         int
-	StartTime    string
-	Title        string
-	UserCount    int
+	Alias                  string
+	Closed                 bool
+	Founder                string
+	HasPassword            bool
+	Id                     string
+	MaxUserCount           int
+	Nsfm                   bool
+	Persistent             bool
+	Protocol               string
+	Size                   int
+	StartTime              string
+	Title                  string
+	UserCount              int
+	ActiveDrawingUserCount int
 }
 
 type cachedSessionInfos struct {
@@ -59,6 +60,12 @@ func (ssr *sessionServerResponse) AliasOrId() string {
 	} else {
 		return ssr.Id
 	}
+}
+
+func (ssr *sessionServerResponse) UnmarshalJSON(data []byte) error {
+	ssr.ActiveDrawingUserCount = -1
+	type jsonSessionServerResponse sessionServerResponse
+	return json.Unmarshal(data, (*jsonSessionServerResponse)(ssr))
 }
 
 func fetchJson(url string, v interface{}) error {
@@ -114,21 +121,22 @@ func fetchServerSessionList(urlString string, host string, port int) ([]db.Sessi
 	sessions := make([]db.SessionInfo, len(listResponse))
 	for i, v := range listResponse {
 		sessions[i] = db.SessionInfo{
-			Host:      host,
-			Port:      port,
-			Id:        v.AliasOrId(),
-			Protocol:  v.Protocol,
-			Title:     v.Title,
-			Users:     v.UserCount,
-			Usernames: []string{},
-			Password:  v.HasPassword,
-			Nsfm:      v.Nsfm,
-			Owner:     v.Founder,
-			Started:   v.StartTime,
-			Roomcode:  "",
-			Private:   false,
-			MaxUsers:  v.MaxUserCount,
-			Closed:    v.Closed,
+			Host:               host,
+			Port:               port,
+			Id:                 v.AliasOrId(),
+			Protocol:           v.Protocol,
+			Title:              v.Title,
+			Users:              v.UserCount,
+			Usernames:          []string{},
+			Password:           v.HasPassword,
+			Nsfm:               v.Nsfm,
+			Owner:              v.Founder,
+			Started:            v.StartTime,
+			Roomcode:           "",
+			Private:            false,
+			MaxUsers:           v.MaxUserCount,
+			Closed:             v.Closed,
+			ActiveDrawingUsers: v.ActiveDrawingUserCount,
 		}
 	}
 
@@ -201,22 +209,23 @@ func FetchServerAdminSessionList(urlString string) ([]db.AdminSession, error) {
 	sessions := make([]db.AdminSession, len(listResponse))
 	for i, v := range listResponse {
 		sessions[i] = db.AdminSession{
-			Host:      info.Hostname,
-			Port:      info.Port,
-			SessionId: v.Id,
-			Protocol:  v.Protocol,
-			Title:     v.Title,
-			Users:     v.UserCount,
-			Usernames: []string{},
-			Password:  v.HasPassword,
-			Nsfm:      v.Nsfm,
-			Owner:     v.Founder,
-			Started:   v.StartTime,
-			Alias:     v.Alias,
-			Private:   false,
-			MaxUsers:  v.MaxUserCount,
-			Closed:    v.Closed,
-			Included:  true,
+			Host:               info.Hostname,
+			Port:               info.Port,
+			SessionId:          v.Id,
+			Protocol:           v.Protocol,
+			Title:              v.Title,
+			Users:              v.UserCount,
+			Usernames:          []string{},
+			Password:           v.HasPassword,
+			Nsfm:               v.Nsfm,
+			Owner:              v.Founder,
+			Started:            v.StartTime,
+			Alias:              v.Alias,
+			Private:            false,
+			MaxUsers:           v.MaxUserCount,
+			Closed:             v.Closed,
+			Included:           true,
+			ActiveDrawingUsers: v.ActiveDrawingUserCount,
 		}
 	}
 

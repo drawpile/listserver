@@ -47,6 +47,23 @@ func sqliteTableExists(conn *sqlite.Conn, tableName string) bool {
 	}
 }
 
+func sqliteMigrationExists(conn *sqlite.Conn, migration int64) bool {
+	stmt, _, err := conn.PrepareTransient(
+		`SELECT EXISTS (SELECT 1 FROM migrations WHERE version = ?)`)
+	if err != nil {
+		panic(err)
+	}
+
+	defer stmt.Finalize()
+	stmt.BindInt64(1, migration)
+
+	if hasRow, err := stmt.Step(); err != nil {
+		panic(err)
+	} else {
+		return hasRow && stmt.ColumnInt(0) != 0
+	}
+}
+
 func sqliteInitDb(conn *sqlite.Conn) {
 	sqliteExec(conn, `CREATE TABLE migrations (
 		version INTEGER PRIMARY KEY NOT NULL
@@ -72,7 +89,8 @@ func sqliteInitDb(conn *sqlite.Conn) {
 		private INTEGER NOT NULL,
 		unlist_reason TEXT,
 		max_users INTEGER NOT NULL,
-		closed INTEGER NOT NULL
+		closed INTEGER NOT NULL,
+		active_drawing_users INTEGER NOT NULL DEFAULT -1
 		);`)
 	sqliteExec(conn, `CREATE TABLE hostbans (
 		id INTEGER PRIMARY KEY NOT NULL,
@@ -101,17 +119,22 @@ func sqliteInitDb(conn *sqlite.Conn) {
 		password_hash TEXT NOT NULL,
 		role INTEGER NOT NULL REFERENCES roles (id)
 		);`)
-	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (1);`)
+	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (1), (2);`)
 }
 
 func sqliteMigrateFromLegacyFormat(conn *sqlite.Conn) {
 	sqliteExec(conn, `ALTER TABLE sessions RENAME TO sessions_old;`)
 	sqliteExec(conn, `ALTER TABLE hostbans RENAME TO hostbans_old;`)
 	sqliteInitDb(conn)
-	sqliteExec(conn, `INSERT INTO sessions SELECT rowid, *, NULL, 0, 0 FROM sessions_old;`)
+	sqliteExec(conn, `INSERT INTO sessions SELECT rowid, *, NULL, 0, 0, -1 FROM sessions_old;`)
 	sqliteExec(conn, `INSERT INTO hostbans SELECT rowid, * FROM hostbans_old;`)
 	sqliteExec(conn, `DROP TABLE sessions_old;`)
 	sqliteExec(conn, `DROP TABLE hostbans_old;`)
+}
+
+func sqliteMigrateActiveDrawingUsers(conn *sqlite.Conn) {
+	sqliteExec(conn, `ALTER TABLE sessions ADD active_drawing_users INTEGER NOT NULL DEFAULT -1;`)
+	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (2);`)
 }
 
 func sqliteEnableForeignKeys(dbpool *sqlitex.Pool, poolsize int) error {
@@ -152,7 +175,10 @@ func newSqliteDb(dbname string, sessionTimeout int) (*sqliteDb, error) {
 
 	sqliteExec(conn, "BEGIN TRANSACTION;")
 	if sqliteTableExists(conn, "migrations") {
-		// When we have something to migrate, put it here.
+		if !sqliteMigrationExists(conn, 2) {
+			log.Println("Applying database migration 2: active drawing users")
+			sqliteMigrateActiveDrawingUsers(conn)
+		}
 	} else if sqliteTableExists(conn, "sessions") {
 		log.Println("Applying database migrations")
 		sqliteMigrateFromLegacyFormat(conn) // Pre-migrations table format.
@@ -203,7 +229,7 @@ func (db *sqliteDb) SessionTimeoutMinutes() int {
 func (db *sqliteDb) QuerySessionList(opts QueryOptions, ctx context.Context) ([]SessionInfo, error) {
 	querySql := `
 	SELECT host, port, session_id, roomcode, protocol, title, users, usernames, password, nsfm, owner,
-	started, max_users, closed
+	started, max_users, closed, active_drawing_users
 	FROM sessions
 	WHERE last_active >= DATETIME('now', $timeout) AND unlisted=false AND private=false`
 
@@ -257,21 +283,22 @@ func (db *sqliteDb) QuerySessionList(opts QueryOptions, ctx context.Context) ([]
 		}
 
 		sessions = append(sessions, SessionInfo{
-			Host:      stmt.GetText("host"),
-			Port:      int(stmt.GetInt64("port")),
-			Id:        stmt.GetText("session_id"),
-			Protocol:  stmt.GetText("protocol"),
-			Title:     stmt.GetText("title"),
-			Users:     int(stmt.GetInt64("users")),
-			Usernames: sqliteSplitUsernames(stmt.GetText("usernames")),
-			Password:  stmt.GetInt64("password") != 0,
-			Nsfm:      stmt.GetInt64("nsfm") != 0,
-			Owner:     stmt.GetText("owner"),
-			Started:   stmt.GetText("started"),
-			Roomcode:  stmt.GetText("roomcode"),
-			Private:   false,
-			MaxUsers:  int(stmt.GetInt64("max_users")),
-			Closed:    stmt.GetInt64("closed") != 0,
+			Host:               stmt.GetText("host"),
+			Port:               int(stmt.GetInt64("port")),
+			Id:                 stmt.GetText("session_id"),
+			Protocol:           stmt.GetText("protocol"),
+			Title:              stmt.GetText("title"),
+			Users:              int(stmt.GetInt64("users")),
+			Usernames:          sqliteSplitUsernames(stmt.GetText("usernames")),
+			Password:           stmt.GetInt64("password") != 0,
+			Nsfm:               stmt.GetInt64("nsfm") != 0,
+			Owner:              stmt.GetText("owner"),
+			Started:            stmt.GetText("started"),
+			Roomcode:           stmt.GetText("roomcode"),
+			Private:            false,
+			MaxUsers:           int(stmt.GetInt64("max_users")),
+			Closed:             stmt.GetInt64("closed") != 0,
+			ActiveDrawingUsers: int(stmt.GetInt64("active_drawing_users")),
 		})
 	}
 
@@ -412,9 +439,9 @@ func (db *sqliteDb) InsertSession(session SessionInfo, clientIp string, ctx cont
 	stmt := conn.Prep(`INSERT INTO sessions
 	(host, port, session_id, protocol, title, users, usernames, password, nsfm,
 	owner, started, last_active, unlisted, update_key, client_ip, private,
-	max_users, closed)
+	max_users, closed, active_drawing_users)
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
-	CURRENT_TIMESTAMP, 0, ?, ?, ?, ?, ?)
+	CURRENT_TIMESTAMP, 0, ?, ?, ?, ?, ?, ?)
 	`)
 
 	i := sqlite.BindIncrementor()
@@ -433,6 +460,7 @@ func (db *sqliteDb) InsertSession(session SessionInfo, clientIp string, ctx cont
 	stmt.BindBool(i(), session.Private)
 	stmt.BindInt64(i(), int64(session.MaxUsers))
 	stmt.BindBool(i(), session.Closed)
+	stmt.BindInt64(i(), int64(session.ActiveDrawingUsers))
 
 	if _, err := stmt.Step(); err != nil {
 		return NewSessionInfo{}, err
@@ -651,7 +679,7 @@ func (db *sqliteDb) AdminQuerySessions(ctx context.Context) ([]AdminSession, err
 			password, nsfm, owner, started, last_active, unlisted, update_key,
 			client_ip, roomcode, private, unlist_reason, max_users, closed,
 			last_active < DATETIME('now', $timeout) AS timed_out,
-			unlist_reason IS NOT NULL as kicked
+			unlist_reason IS NOT NULL as kicked, active_drawing_users
 		FROM sessions
 		ORDER BY host, id
 	`)
@@ -680,29 +708,30 @@ func (db *sqliteDb) AdminQuerySessions(ctx context.Context) ([]AdminSession, err
 		}
 
 		sessions = append(sessions, AdminSession{
-			Id:           stmt.GetInt64("id"),
-			Host:         stmt.GetText("host"),
-			Port:         int(stmt.GetInt64("port")),
-			SessionId:    stmt.GetText("session_id"),
-			Protocol:     stmt.GetText("protocol"),
-			Title:        stmt.GetText("title"),
-			Users:        int(stmt.GetInt64("users")),
-			Usernames:    sqliteSplitUsernames(stmt.GetText("usernames")),
-			Password:     stmt.GetInt64("password") != 0,
-			Nsfm:         stmt.GetInt64("nsfm") != 0,
-			Owner:        stmt.GetText("owner"),
-			Started:      stmt.GetText("started"),
-			LastActive:   stmt.GetText("last_active"),
-			Unlisted:     unlisted || timedOut,
-			UpdateKey:    stmt.GetText("update_key"),
-			ClientIp:     stmt.GetText("client_ip"),
-			Roomcode:     stmt.GetText("roomcode"),
-			Private:      stmt.GetInt64("private") != 0,
-			UnlistReason: unlistReason,
-			MaxUsers:     int(stmt.GetInt64("max_users")),
-			Closed:       stmt.GetInt64("closed") != 0,
-			Kicked:       kicked,
-			TimedOut:     timedOut,
+			Id:                 stmt.GetInt64("id"),
+			Host:               stmt.GetText("host"),
+			Port:               int(stmt.GetInt64("port")),
+			SessionId:          stmt.GetText("session_id"),
+			Protocol:           stmt.GetText("protocol"),
+			Title:              stmt.GetText("title"),
+			Users:              int(stmt.GetInt64("users")),
+			Usernames:          sqliteSplitUsernames(stmt.GetText("usernames")),
+			Password:           stmt.GetInt64("password") != 0,
+			Nsfm:               stmt.GetInt64("nsfm") != 0,
+			Owner:              stmt.GetText("owner"),
+			Started:            stmt.GetText("started"),
+			LastActive:         stmt.GetText("last_active"),
+			Unlisted:           unlisted || timedOut,
+			UpdateKey:          stmt.GetText("update_key"),
+			ClientIp:           stmt.GetText("client_ip"),
+			Roomcode:           stmt.GetText("roomcode"),
+			Private:            stmt.GetInt64("private") != 0,
+			UnlistReason:       unlistReason,
+			MaxUsers:           int(stmt.GetInt64("max_users")),
+			Closed:             stmt.GetInt64("closed") != 0,
+			Kicked:             kicked,
+			TimedOut:           timedOut,
+			ActiveDrawingUsers: int(stmt.GetInt64("active_drawing_users")),
 		})
 	}
 
