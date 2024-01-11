@@ -90,7 +90,8 @@ func sqliteInitDb(conn *sqlite.Conn) {
 		unlist_reason TEXT,
 		max_users INTEGER NOT NULL,
 		closed INTEGER NOT NULL,
-		active_drawing_users INTEGER NOT NULL DEFAULT -1
+		active_drawing_users INTEGER NOT NULL DEFAULT -1,
+		allow_web INTEGER NOT NULL DEFAULT 0
 		);`)
 	sqliteExec(conn, `CREATE TABLE hostbans (
 		id INTEGER PRIMARY KEY NOT NULL,
@@ -119,14 +120,14 @@ func sqliteInitDb(conn *sqlite.Conn) {
 		password_hash TEXT NOT NULL,
 		role INTEGER NOT NULL REFERENCES roles (id)
 		);`)
-	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (1), (2);`)
+	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (1), (2), (3);`)
 }
 
 func sqliteMigrateFromLegacyFormat(conn *sqlite.Conn) {
 	sqliteExec(conn, `ALTER TABLE sessions RENAME TO sessions_old;`)
 	sqliteExec(conn, `ALTER TABLE hostbans RENAME TO hostbans_old;`)
 	sqliteInitDb(conn)
-	sqliteExec(conn, `INSERT INTO sessions SELECT rowid, *, NULL, 0, 0, -1 FROM sessions_old;`)
+	sqliteExec(conn, `INSERT INTO sessions SELECT rowid, *, NULL, 0, 0, -1, 0 FROM sessions_old;`)
 	sqliteExec(conn, `INSERT INTO hostbans SELECT rowid, * FROM hostbans_old;`)
 	sqliteExec(conn, `DROP TABLE sessions_old;`)
 	sqliteExec(conn, `DROP TABLE hostbans_old;`)
@@ -135,6 +136,11 @@ func sqliteMigrateFromLegacyFormat(conn *sqlite.Conn) {
 func sqliteMigrateActiveDrawingUsers(conn *sqlite.Conn) {
 	sqliteExec(conn, `ALTER TABLE sessions ADD active_drawing_users INTEGER NOT NULL DEFAULT -1;`)
 	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (2);`)
+}
+
+func sqliteMigrateAllowWeb(conn *sqlite.Conn) {
+	sqliteExec(conn, `ALTER TABLE sessions ADD allow_web INTEGER NOT NULL DEFAULT 0;`)
+	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (3);`)
 }
 
 func sqliteEnableForeignKeys(dbpool *sqlitex.Pool, poolsize int) error {
@@ -178,6 +184,10 @@ func newSqliteDb(dbname string, sessionTimeout int) (*sqliteDb, error) {
 		if !sqliteMigrationExists(conn, 2) {
 			log.Println("Applying database migration 2: active drawing users")
 			sqliteMigrateActiveDrawingUsers(conn)
+		}
+		if !sqliteMigrationExists(conn, 3) {
+			log.Println("Applying database migration 3: allow web")
+			sqliteMigrateAllowWeb(conn)
 		}
 	} else if sqliteTableExists(conn, "sessions") {
 		log.Println("Applying database migrations")
@@ -229,7 +239,7 @@ func (db *sqliteDb) SessionTimeoutMinutes() int {
 func (db *sqliteDb) QuerySessionList(opts QueryOptions, ctx context.Context) ([]SessionInfo, error) {
 	querySql := `
 	SELECT host, port, session_id, roomcode, protocol, title, users, usernames, password, nsfm, owner,
-	started, max_users, closed, active_drawing_users
+	started, max_users, closed, active_drawing_users, allow_web
 	FROM sessions
 	WHERE last_active >= DATETIME('now', $timeout) AND unlisted=false AND private=false`
 
@@ -299,6 +309,7 @@ func (db *sqliteDb) QuerySessionList(opts QueryOptions, ctx context.Context) ([]
 			MaxUsers:           int(stmt.GetInt64("max_users")),
 			Closed:             stmt.GetInt64("closed") != 0,
 			ActiveDrawingUsers: int(stmt.GetInt64("active_drawing_users")),
+			AllowWeb:           stmt.GetInt64("allow_web") != 0,
 		})
 	}
 
@@ -439,9 +450,9 @@ func (db *sqliteDb) InsertSession(session SessionInfo, clientIp string, ctx cont
 	stmt := conn.Prep(`INSERT INTO sessions
 	(host, port, session_id, protocol, title, users, usernames, password, nsfm,
 	owner, started, last_active, unlisted, update_key, client_ip, private,
-	max_users, closed, active_drawing_users)
+	max_users, closed, active_drawing_users, allow_web)
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
-	CURRENT_TIMESTAMP, 0, ?, ?, ?, ?, ?, ?)
+	CURRENT_TIMESTAMP, 0, ?, ?, ?, ?, ?, ?, ?)
 	`)
 
 	i := sqlite.BindIncrementor()
@@ -461,6 +472,7 @@ func (db *sqliteDb) InsertSession(session SessionInfo, clientIp string, ctx cont
 	stmt.BindInt64(i(), int64(session.MaxUsers))
 	stmt.BindBool(i(), session.Closed)
 	stmt.BindInt64(i(), int64(session.ActiveDrawingUsers))
+	stmt.BindBool(i(), session.AllowWeb)
 
 	if _, err := stmt.Step(); err != nil {
 		return NewSessionInfo{}, err
@@ -679,7 +691,7 @@ func (db *sqliteDb) AdminQuerySessions(ctx context.Context) ([]AdminSession, err
 			password, nsfm, owner, started, last_active, unlisted, update_key,
 			client_ip, roomcode, private, unlist_reason, max_users, closed,
 			last_active < DATETIME('now', $timeout) AS timed_out,
-			unlist_reason IS NOT NULL as kicked, active_drawing_users
+			unlist_reason IS NOT NULL as kicked, active_drawing_users, allow_web
 		FROM sessions
 		ORDER BY host, id
 	`)
@@ -732,6 +744,7 @@ func (db *sqliteDb) AdminQuerySessions(ctx context.Context) ([]AdminSession, err
 			Kicked:             kicked,
 			TimedOut:           timedOut,
 			ActiveDrawingUsers: int(stmt.GetInt64("active_drawing_users")),
+			AllowWeb:           stmt.GetInt64("allow_web") != 0,
 		})
 	}
 

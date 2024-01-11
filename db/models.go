@@ -26,6 +26,7 @@ type SessionInfo struct {
 	Private            bool     `json:"private,omitempty"`
 	Closed             bool     `json:"closed,omitempty"`
 	ActiveDrawingUsers int      `json:"activedrawingusers"`
+	AllowWeb           bool     `json:"allowweb,omitempty"`
 }
 
 func (info SessionInfo) HostAddress() string {
@@ -92,6 +93,7 @@ type AdminSession struct {
 	Included           bool     `json:"included"`
 	Error              string   `json:"error,omitempty"`
 	ActiveDrawingUsers int      `json:"activedrawingusers"`
+	AllowWeb           bool     `json:"allowweb,omitempty"`
 }
 
 type AdminHostBan struct {

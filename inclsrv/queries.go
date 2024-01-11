@@ -34,6 +34,7 @@ type sessionServerResponse struct {
 	Title                  string
 	UserCount              int
 	ActiveDrawingUserCount int
+	AllowWeb               bool
 }
 
 type cachedSessionInfos struct {
@@ -137,6 +138,7 @@ func fetchServerSessionList(urlString string, host string, port int) ([]db.Sessi
 			MaxUsers:           v.MaxUserCount,
 			Closed:             v.Closed,
 			ActiveDrawingUsers: v.ActiveDrawingUserCount,
+			AllowWeb:           v.AllowWeb,
 		}
 	}
 
