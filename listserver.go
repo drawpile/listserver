@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,18 +19,25 @@ import (
 )
 
 const (
+	version    = "1.7.0"
 	apiVersion = "1.7"
 	apiName    = "drawpile-session-list"
 )
 
 func main() {
 	// Command line arguments (can be set in configuration file as well)
+	showVersion := flag.Bool("v", false, "show version plus API and exit")
 	cfgFile := flag.String("c", "", "configuration file")
 	listenAddr := flag.String("l", "", "listening address")
 	dbName := flag.String("d", "", "database path")
 	inclServer := flag.String("s", "", "include session from server")
 
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("listserver-%s (%s@%s)\n", version, apiName, apiVersion)
+		os.Exit(0)
+	}
 
 	// Load configuration file
 	var cfg *config
