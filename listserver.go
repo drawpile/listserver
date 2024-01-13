@@ -17,6 +17,11 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const (
+	apiVersion = "1.7"
+	apiName    = "drawpile-session-list"
+)
+
 func main() {
 	// Command line arguments (can be set in configuration file as well)
 	cfgFile := flag.String("c", "", "configuration file")

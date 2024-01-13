@@ -24,8 +24,8 @@ var nameRe = regexp.MustCompile(`\A[a-z0-9_]+\z`)
 func serverInfo(ctx apiContext) map[string]interface{} {
 	readonly := len(ctx.cfg.Database) == 0
 	return map[string]interface{}{
-		"api_name":    "drawpile-session-list",
-		"version":     "1.6",
+		"api_name":    apiName,
+		"version":     apiVersion,
 		"name":        ctx.cfg.Name,
 		"description": ctx.cfg.Description,
 		"favicon":     ctx.cfg.Favicon,
