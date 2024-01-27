@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	version    = "1.7.0"
+	version    = "1.7.1"
 	apiVersion = "1.7"
 	apiName    = "drawpile-session-list"
 )
