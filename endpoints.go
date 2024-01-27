@@ -45,7 +45,7 @@ func apiRootHandler(r *http.Request) http.Handler {
 // Return the session list
 func apiSessionListHandler(r *http.Request) http.Handler {
 	ctx := r.Context().Value(apiCtxKey).(apiContext)
-	if !ctx.cfg.Public {
+	if !ctx.cfg.Public && len(ctx.cfg.IncludeServers) == 0 {
 		return ErrorResponse("No public listings on this server", http.StatusNotFound)
 	}
 
