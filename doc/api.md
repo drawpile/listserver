@@ -1,5 +1,4 @@
-Drawpile session listing web API
----------------------------------
+# Drawpile Session Listing Web API
 
 This document describes the REST style API for publicly announcing Drawpile sessions.
 
@@ -24,7 +23,7 @@ Returns (200 OK):
 
     {
         "api_name": "drawpile-session-list",
-        "version": "1.6",
+        "version": "1.7",
         "name": "listing name",
         "description": "listing description",
         "favicon": "favicon URL" (optional),
@@ -79,7 +78,10 @@ Returns (200 OK):
         "password": true/false (is the session password protected),
         "nsfm": true/false (Not Suitable For Minors),
         "owner": "username",
-        "started": "YYYY-MM-DD HH:MM:SS" (timestamp in ISO 8601 format, UTC+0 timezone)
+        "started": "YYYY-MM-DD HH:MM:SS" (timestamp in ISO 8601 format, UTC+0 timezone),
+        "closed": true/false (is the session closed for new logins),
+        "activedrawingusers": number of actively drawing users,
+        "allowweb": true/false (does the session allow joining via WebSocket)
     }, ...
     ]
 
@@ -134,7 +136,10 @@ The request body:
         "usernames": ["list of user names", ...],
         "password": boolean (is the session password protected),
         "nsfm": boolean,
-        "private": boolean
+        "private": boolean,
+        "closed": boolean,
+        "activedrawingusers": int,
+        "allowweb": boolean
     }
 
 The `id`, `protocol`, `owner` and `title` fields are required.
@@ -211,7 +216,10 @@ The request body:
         "password": is a password required (true/false),
         "owner": "session owner's name",
         "nsfm": true,
-        "private": false
+        "private": false,
+        "closed": boolean,
+        "activedrawingusers": int,
+        "allowweb": boolean
     }
 
 All fields are optional. If the values have not changed since the last refresh,
@@ -264,10 +272,14 @@ The HTTP header `X-Update-Key` must be set.
 
 `DELETE /sessions/:id/`
 
-Returns 204 No Content on success.  
+Returns 204 No Content on success.
 Returns the same errors as the Refresh call.
 
 ## History
+
+Version 1.7
+
+ * Added `closed`, `activedrawingusers` and `allowweb` fields
 
 Version 1.6
 
