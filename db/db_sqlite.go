@@ -27,6 +27,16 @@ func sqliteExec(conn *sqlite.Conn, statement string) {
 	stmt.Finalize()
 }
 
+// The SQLite library leaves (potentially large) WAL files laying around.
+// https://github.com/crawshaw/sqlite/issues/119
+func sqliteCleanUpWal(ctx context.Context, dbname string) error {
+	dbpool, err := sqlitex.Open(dbname, 0, 1)
+	if err != nil {
+		return err
+	}
+	return dbpool.Close()
+}
+
 func sqliteTableExists(conn *sqlite.Conn, tableName string) bool {
 	stmt, _, err := conn.PrepareTransient(`
 		SELECT EXISTS (
@@ -156,10 +166,13 @@ func sqliteEnableForeignKeys(dbpool *sqlitex.Pool, poolsize int) error {
 }
 
 func newSqliteDb(dbname string, sessionTimeout int) (*sqliteDb, error) {
+	ctx := context.Background()
 	poolsize := 5
 	if dbname == "memory" {
 		dbname = "file:memory:?mode=memory"
 		poolsize = 1 // memory database is not shared between connections
+	} else {
+		sqliteCleanUpWal(ctx, dbname)
 	}
 
 	dbpool, err := sqlitex.Open(dbname, 0, poolsize)
@@ -172,7 +185,6 @@ func newSqliteDb(dbname string, sessionTimeout int) (*sqliteDb, error) {
 		return nil, fmt.Errorf("Error enabling foreign keys: %s", err.Error())
 	}
 
-	ctx := context.Background()
 	conn := dbpool.Get(ctx)
 	if conn == nil {
 		return nil, fmt.Errorf("No connection")
