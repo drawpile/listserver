@@ -624,6 +624,11 @@ func (db *sqliteDb) RefreshSession(refreshFields map[string]interface{}, listing
 	querySql += ", active_drawing_users=?"
 	params = append(params, activeDrawingUsers)
 
+	if val, ok := optBool(refreshFields, "allowweb"); ok {
+		querySql += ", allow_web=?"
+		params = append(params, val)
+	}
+
 	querySql += " WHERE id=?"
 	params = append(params, listingId)
 
