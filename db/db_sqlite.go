@@ -615,6 +615,15 @@ func (db *sqliteDb) RefreshSession(refreshFields map[string]interface{}, listing
 		params = append(params, val)
 	}
 
+	var activeDrawingUsers int
+	if val, ok := optInt(refreshFields, "activedrawingusers"); ok {
+		activeDrawingUsers = val
+	} else {
+		activeDrawingUsers = -1
+	}
+	querySql += ", active_drawing_users=?"
+	params = append(params, activeDrawingUsers)
+
 	querySql += " WHERE id=?"
 	params = append(params, listingId)
 
