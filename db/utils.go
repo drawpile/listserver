@@ -14,19 +14,6 @@ func generateUpdateKey() (string, error) {
 	return base64.URLEncoding.EncodeToString(keybytes), nil
 }
 
-func generateRoomcode(length int) (string, error) {
-	randbytes := make([]byte, length)
-	_, err := rand.Read(randbytes)
-	if err != nil {
-		return "", err
-	}
-	code := make([]rune, length)
-	for i := range randbytes {
-		code[i] = rune(randbytes[i]%26) + 'A'
-	}
-	return string(code), nil
-}
-
 func optStringList(fields map[string]interface{}, name string) ([]string, bool) {
 	if value, ok := fields[name]; ok {
 		val, ok := value.([]string)

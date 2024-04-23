@@ -22,7 +22,6 @@ type SessionInfo struct {
 	Nsfm               bool     `json:"nsfm"`
 	Owner              string   `json:"owner"`
 	Started            string   `json:"started"`
-	Roomcode           string   `json:"roomcode,omitempty"`
 	Private            bool     `json:"private,omitempty"`
 	Closed             bool     `json:"closed,omitempty"`
 	ActiveDrawingUsers int      `json:"activedrawingusers"`
@@ -54,8 +53,6 @@ type JoinSessionInfo struct {
 type NewSessionInfo struct {
 	ListingId int64  `json:"id"`
 	UpdateKey string `json:"key"`
-	Private   bool   `json:"private"`
-	Roomcode  string `json:"roomcode,omitempty"`
 }
 
 // Session list querying options
@@ -83,9 +80,7 @@ type AdminSession struct {
 	Unlisted           bool     `json:"unlisted"`
 	UpdateKey          string   `json:"updatekey"`
 	ClientIp           string   `json:"clientip"`
-	Roomcode           string   `json:"roomcode,omitempty"`
 	Alias              string   `json:"alias,omitempty"`
-	Private            bool     `json:"private,omitempty"`
 	UnlistReason       string   `json:"unlistreason,omitempty"`
 	Kicked             bool     `json:"kicked"`
 	TimedOut           bool     `json:"timedout"`

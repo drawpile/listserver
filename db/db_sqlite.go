@@ -74,10 +74,7 @@ func sqliteMigrationExists(conn *sqlite.Conn, migration int64) bool {
 	}
 }
 
-func sqliteInitDb(conn *sqlite.Conn) {
-	sqliteExec(conn, `CREATE TABLE migrations (
-		version INTEGER PRIMARY KEY NOT NULL
-		);`)
+func sqliteCreateSessionsTable(conn *sqlite.Conn) {
 	sqliteExec(conn, `CREATE TABLE sessions (
 		id INTEGER PRIMARY KEY NOT NULL,
 		host TEXT NOT NULL,
@@ -95,14 +92,19 @@ func sqliteInitDb(conn *sqlite.Conn) {
 		unlisted INTEGER NOT NULL,
 		update_key TEXT NOT NULL,
 		client_ip TEXT NOT NULL,
-		roomcode TEXT UNIQUE,
-		private INTEGER NOT NULL,
 		unlist_reason TEXT,
 		max_users INTEGER NOT NULL,
 		closed INTEGER NOT NULL,
 		active_drawing_users INTEGER NOT NULL DEFAULT -1,
 		allow_web INTEGER NOT NULL DEFAULT 0
 		);`)
+}
+
+func sqliteInitDb(conn *sqlite.Conn) {
+	sqliteExec(conn, `CREATE TABLE migrations (
+		version INTEGER PRIMARY KEY NOT NULL
+		);`)
+	sqliteCreateSessionsTable(conn)
 	sqliteExec(conn, `CREATE TABLE hostbans (
 		id INTEGER PRIMARY KEY NOT NULL,
 		host TEXT NOT NULL,
@@ -137,7 +139,10 @@ func sqliteMigrateFromLegacyFormat(conn *sqlite.Conn) {
 	sqliteExec(conn, `ALTER TABLE sessions RENAME TO sessions_old;`)
 	sqliteExec(conn, `ALTER TABLE hostbans RENAME TO hostbans_old;`)
 	sqliteInitDb(conn)
-	sqliteExec(conn, `INSERT INTO sessions SELECT rowid, *, NULL, 0, 0, -1, 0 FROM sessions_old;`)
+	sqliteExec(conn, `INSERT INTO sessions SELECT
+		rowid, host, port, session_id, protocol, title, users, usernames,
+		password, nsfm, owner, started, last_active, unlisted, update_key,
+		client_ip, NULL, 0, 0, -1, 0 FROM sessions_old;`)
 	sqliteExec(conn, `INSERT INTO hostbans SELECT rowid, * FROM hostbans_old;`)
 	sqliteExec(conn, `DROP TABLE sessions_old;`)
 	sqliteExec(conn, `DROP TABLE hostbans_old;`)
@@ -151,6 +156,18 @@ func sqliteMigrateActiveDrawingUsers(conn *sqlite.Conn) {
 func sqliteMigrateAllowWeb(conn *sqlite.Conn) {
 	sqliteExec(conn, `ALTER TABLE sessions ADD allow_web INTEGER NOT NULL DEFAULT 0;`)
 	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (3);`)
+}
+
+func sqliteMigrateRoomcodeRemoval(conn *sqlite.Conn) {
+	sqliteExec(conn, `ALTER TABLE sessions RENAME TO sessions_old;`)
+	sqliteCreateSessionsTable(conn)
+	sqliteExec(conn, `INSERT INTO sessions SELECT
+		id, host, port, session_id, protocol, title, users, usernames, password,
+		nsfm, owner, started, last_active, unlisted, update_key, client_ip,
+		unlist_reason, max_users, closed, active_drawing_users, allow_web
+		FROM sessions_old;`)
+	sqliteExec(conn, `DROP TABLE sessions_old;`)
+	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (4);`)
 }
 
 func sqliteEnableForeignKeys(dbpool *sqlitex.Pool, poolsize int) error {
@@ -201,6 +218,10 @@ func newSqliteDb(dbname string, sessionTimeout int) (*sqliteDb, error) {
 			log.Println("Applying database migration 3: allow web")
 			sqliteMigrateAllowWeb(conn)
 		}
+		if !sqliteMigrationExists(conn, 4) {
+			log.Println("Applying database migration 4: remove roomcodes")
+			sqliteMigrateRoomcodeRemoval(conn)
+		}
 	} else if sqliteTableExists(conn, "sessions") {
 		log.Println("Applying database migrations")
 		sqliteMigrateFromLegacyFormat(conn) // Pre-migrations table format.
@@ -250,10 +271,10 @@ func (db *sqliteDb) SessionTimeoutMinutes() int {
 // Get a list of sessions that match the given query parameters
 func (db *sqliteDb) QuerySessionList(opts QueryOptions, ctx context.Context) ([]SessionInfo, error) {
 	querySql := `
-	SELECT host, port, session_id, roomcode, protocol, title, users, usernames, password, nsfm, owner,
+	SELECT host, port, session_id, protocol, title, users, usernames, password, nsfm, owner,
 	started, max_users, closed, active_drawing_users, allow_web
 	FROM sessions
-	WHERE last_active >= DATETIME('now', $timeout) AND unlisted=false AND private=false`
+	WHERE last_active >= DATETIME('now', $timeout) AND unlisted=false`
 
 	if len(opts.Title) > 0 {
 		querySql += " AND title LIKE '%' || $title || '%'"
@@ -316,8 +337,6 @@ func (db *sqliteDb) QuerySessionList(opts QueryOptions, ctx context.Context) ([]
 			Nsfm:               stmt.GetInt64("nsfm") != 0,
 			Owner:              stmt.GetText("owner"),
 			Started:            stmt.GetText("started"),
-			Roomcode:           stmt.GetText("roomcode"),
-			Private:            false,
 			MaxUsers:           int(stmt.GetInt64("max_users")),
 			Closed:             stmt.GetInt64("closed") != 0,
 			ActiveDrawingUsers: int(stmt.GetInt64("active_drawing_users")),
@@ -326,39 +345,6 @@ func (db *sqliteDb) QuerySessionList(opts QueryOptions, ctx context.Context) ([]
 	}
 
 	return sessions, nil
-}
-
-// Get the session matching the given room code (if it is still active)
-func (db *sqliteDb) QuerySessionByRoomcode(roomcode string, ctx context.Context) (JoinSessionInfo, error) {
-	conn := db.pool.Get(ctx)
-	if conn == nil {
-		return JoinSessionInfo{}, fmt.Errorf("Connection not available")
-	}
-	defer db.pool.Put(conn)
-
-	stmt := conn.Prep(`SELECT host, port, session_id
-	FROM sessions
-	WHERE last_active >= DATETIME('now', $timeout) AND unlisted=false
-	AND roomcode=$roomcode
-	`)
-	defer stmt.Reset()
-
-	stmt.SetText("$timeout", db.timeoutString)
-	stmt.SetText("$roomcode", roomcode)
-
-	ses := JoinSessionInfo{}
-
-	if hasRow, err := stmt.Step(); err != nil {
-		return ses, err
-	} else if !hasRow {
-		return ses, nil
-	}
-
-	ses.Host = stmt.GetText("host")
-	ses.Port = int(stmt.GetInt64("port"))
-	ses.Id = stmt.GetText("session_id")
-
-	return ses, nil
 }
 
 // Is there an active announcement for this session
@@ -461,10 +447,10 @@ func (db *sqliteDb) InsertSession(session SessionInfo, clientIp string, ctx cont
 
 	stmt := conn.Prep(`INSERT INTO sessions
 	(host, port, session_id, protocol, title, users, usernames, password, nsfm,
-	owner, started, last_active, unlisted, update_key, client_ip, private,
-	max_users, closed, active_drawing_users, allow_web)
+	owner, started, last_active, unlisted, update_key, client_ip, max_users,
+	closed, active_drawing_users, allow_web)
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
-	CURRENT_TIMESTAMP, 0, ?, ?, ?, ?, ?, ?, ?)
+	CURRENT_TIMESTAMP, 0, ?, ?, ?, ?, ?, ?)
 	`)
 
 	i := sqlite.BindIncrementor()
@@ -480,7 +466,6 @@ func (db *sqliteDb) InsertSession(session SessionInfo, clientIp string, ctx cont
 	stmt.BindText(i(), session.Owner)
 	stmt.BindText(i(), updateKey)
 	stmt.BindText(i(), clientIp)
-	stmt.BindBool(i(), session.Private)
 	stmt.BindInt64(i(), int64(session.MaxUsers))
 	stmt.BindBool(i(), session.Closed)
 	stmt.BindInt64(i(), int64(session.ActiveDrawingUsers))
@@ -493,44 +478,7 @@ func (db *sqliteDb) InsertSession(session SessionInfo, clientIp string, ctx cont
 	return NewSessionInfo{
 		conn.LastInsertRowID(),
 		updateKey,
-		session.Private,
-		"",
 	}, nil
-}
-
-// Assign a random room code to a listing and return the code
-func (db *sqliteDb) AssignRoomCode(listingId int64, ctx context.Context) (string, error) {
-	conn := db.pool.Get(ctx)
-	if conn == nil {
-		return "", fmt.Errorf("Connection not available")
-	}
-	defer db.pool.Put(conn)
-
-	stmt := conn.Prep("UPDATE sessions SET roomcode=$roomcode WHERE id=$id")
-
-	for retry := 0; retry < 10; retry += 1 {
-		roomcode, err := generateRoomcode(5)
-		if err != nil {
-			return "", err
-		}
-		stmt.SetText("$roomcode", roomcode)
-		stmt.SetInt64("$id", listingId)
-
-		if _, err = stmt.Step(); err != nil {
-			if sqerr, ok := err.(sqlite.Error); ok {
-				// Unlikely, but can happen
-				if sqerr.Code == sqlite.SQLITE_CONSTRAINT_UNIQUE {
-					continue
-				}
-			}
-
-			return "", err
-
-		} else {
-			return roomcode, nil
-		}
-	}
-	return "", fmt.Errorf("Couldn't generate a unique room code")
 }
 
 // Refresh an announcement
@@ -597,11 +545,6 @@ func (db *sqliteDb) RefreshSession(refreshFields map[string]interface{}, listing
 
 	if val, ok := optBool(refreshFields, "nsfm"); ok {
 		querySql += ", nsfm=?"
-		params = append(params, val)
-	}
-
-	if val, ok := optBool(refreshFields, "private"); ok {
-		querySql += ", private=?"
 		params = append(params, val)
 	}
 
@@ -715,7 +658,7 @@ func (db *sqliteDb) AdminQuerySessions(ctx context.Context) ([]AdminSession, err
 	stmt := conn.Prep(`
 		SELECT id, host, port, session_id, protocol, title, users, usernames,
 			password, nsfm, owner, started, last_active, unlisted, update_key,
-			client_ip, roomcode, private, unlist_reason, max_users, closed,
+			client_ip, unlist_reason, max_users, closed,
 			last_active < DATETIME('now', $timeout) AS timed_out,
 			unlist_reason IS NOT NULL as kicked, active_drawing_users, allow_web
 		FROM sessions
@@ -762,8 +705,6 @@ func (db *sqliteDb) AdminQuerySessions(ctx context.Context) ([]AdminSession, err
 			Unlisted:           unlisted || timedOut,
 			UpdateKey:          stmt.GetText("update_key"),
 			ClientIp:           stmt.GetText("client_ip"),
-			Roomcode:           stmt.GetText("roomcode"),
-			Private:            stmt.GetInt64("private") != 0,
 			UnlistReason:       unlistReason,
 			MaxUsers:           int(stmt.GetInt64("max_users")),
 			Closed:             stmt.GetInt64("closed") != 0,

@@ -30,7 +30,7 @@ Returns (200 OK):
         "read_only": true|false (optional, default is false),
         "source": "URL for the server source code" (optional)
         "public": true|false (optional, default is true),
-        "private": true|false (optional, default is !read_only)
+        "private": false (always false since version 1.7.2)
     }
 
 When a list is added to Drawpile, it makes a request to this URL to make
@@ -70,7 +70,6 @@ Returns (200 OK):
         "host": "host address",
         "port": "host port",
         "id": "session ID",
-        "roomcode": "short unique ID code", (if exists for this listing)
         "protocol": "protocol version",
         "title": "session title",
         "users": number of users,
@@ -89,10 +88,6 @@ The `host`, `port` and `id` fields form a unique key.
 
 The username list may be empty. Password protected sessions will not typically list users.
 
-The `roomcode` field is optional. If it is present and not empty, it contains a random
-code that can be used to fetch the host, port and ID of the session. A room code is always
-exactly 5 letters long and consists of characters in the range A-Z.
-
 The following query parameters can be used:
 
 * `?title=substring` filter sessions to those whose title contains the given substring
@@ -100,24 +95,6 @@ The following query parameters can be used:
 * `?nsfm=true` show also sessions tagged "Not Suitable For Minors"
 
 If public listings are disabled on this server, this endpoint returns HTTP 403 Forbidden, or 404 Not Found.
-
-### Joining information
-
-`GET /join/:roomcode`
-
-Returns (200 OK):
-    {
-        "host": "host address",
-        "port": "host port",
-        "id": "session ID",
-    }
-
-Fetch information needed to join a session using the room code. For private listings,
-this is the only way to get the server address.
-
-A 404 Not Found error is returned if the given code is not found on the server.
-
-A 403 Forbidden error is returned if private listings are disabled on this server.
 
 ### Session announcement
 
@@ -160,9 +137,6 @@ The `nsfm` field is used to inform that the session will contain material not
 suitable for minors. The server may also implicitly apply the tag based on
 words appearing in the title.
 
-If the `private` field is present and set to `true`, the session will not be
-listed in the public list, but is still accessible by room code.
-
 The `usernames` field contains a list of logged in users. This is an optional
 field. Typically only sessions open to public will provide it.
 
@@ -171,15 +145,11 @@ Successful response (200 OK):
     {
         "status": "ok",
         "id": listing ID number,
-        "roomcode": "randomly generated room code" (optional)
         "key": "update key",
         "expires": expiration time in minutes,
         "private": true,
         "message": "welcome message" (optional)
     }
-
-The `roomcode` is described above. The server may be configured not to generate
-room codes, in which case the field is empty or omitted.
 
 The update key is a random string that is used as a password when refreshing this session.
 

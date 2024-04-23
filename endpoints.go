@@ -32,7 +32,7 @@ func serverInfo(ctx apiContext) map[string]interface{} {
 		"source":      "https://github.com/drawpile/listserver/",
 		"read_only":   readonly,
 		"public":      ctx.cfg.Public,
-		"private":     ctx.cfg.Roomcodes && !readonly,
+		"private":     false,
 	}
 }
 
@@ -101,7 +101,7 @@ func apiAnnounceSessionHandler(r *http.Request) http.Handler {
 	}
 
 	// Check if listings are enabled
-	if info.Private && !ctx.cfg.Roomcodes {
+	if info.Private {
 		return ErrorResponse("Private listings not enabled on this server", http.StatusNotFound)
 	}
 	if !info.Private && !ctx.cfg.Public {
@@ -186,16 +186,6 @@ func apiAnnounceSessionHandler(r *http.Request) http.Handler {
 	if err != nil {
 		log.Println("Session insertion error:", err)
 		return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
-	}
-
-	// Assign room code
-	if ctx.cfg.Roomcodes {
-		roomcode, err := ctx.db.AssignRoomCode(newses.ListingId, r.Context())
-		if err != nil {
-			log.Println("Warning: couldn't assign roomcode to listing", newses.ListingId, err)
-		} else {
-			newses.Roomcode = roomcode
-		}
 	}
 
 	// Add a warning message if hostname is an IPv6 address
@@ -340,24 +330,9 @@ func apiUnlistHandler(r *http.Request) http.Handler {
 	}
 }
 
-// Find a session by its roomcode
 func apiRoomCodeHandler(r *http.Request) http.Handler {
-	ctx := r.Context().Value(apiCtxKey).(apiContext)
-
-	if !ctx.cfg.Roomcodes {
-		return ErrorResponse("No room codes on this server", http.StatusNotFound)
-	}
-
-	session, err := ctx.db.QuerySessionByRoomcode(mux.Vars(r)["code"], r.Context())
-	if err != nil {
-		log.Println("Roomcode query error:", err)
-		return ErrorResponse("An internal error occurred", http.StatusInternalServerError)
-	}
-	if session.Host == "" {
-		return ErrorResponse("No such session", http.StatusNotFound)
-	}
-
-	return JsonResponseOk(session)
+	// Roomcodes have been removed in version 1.7.2.
+	return ErrorResponse("No room codes on this server", http.StatusNotFound)
 }
 
 type adminSessionRequest struct {

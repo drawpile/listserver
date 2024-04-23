@@ -27,7 +27,6 @@ type config struct {
 	ProxyHeaders            bool
 	WarnIpv6                bool
 	Public                  bool
-	Roomcodes               bool
 	CheckServer             bool
 	SessionTimeout          int
 	ShutdownTimeout         int
@@ -82,7 +81,6 @@ func defaultConfig() *config {
 		ProxyHeaders:            false,
 		WarnIpv6:                true,
 		Public:                  true,
-		Roomcodes:               true,
 		CheckServer:             true,
 		SessionTimeout:          10,
 		ShutdownTimeout:         1,
