@@ -137,55 +137,62 @@ func startServer(cfg *config, database db.Database, adminUser string, adminPass 
 		handlers.AllowedMethods([]string{http.MethodGet}),
 	))
 
-	if cfg.EnableAdminApi && database != nil {
-		adminRouter := router.PathPrefix("/admin").Subrouter()
-		adminRouter.Handle("/", handlers.MethodHandler{
-			"GET": ResponseHandler(apiAdminRootHandler),
-		})
-		adminRouter.Handle("/sessions/", handlers.MethodHandler{
-			"GET": ResponseHandler(apiAdminSessionListHandler),
-			"PUT": ResponseHandler(apiAdminSessionPutHandler),
-		})
-		adminRouter.Handle("/bans/", handlers.MethodHandler{
-			"GET":  ResponseHandler(apiAdminBanListHandler),
-			"POST": ResponseHandler(apiAdminBanCreateHandler),
-		})
-		adminRouter.Handle("/bans/{id:[0-9]+}/", handlers.MethodHandler{
-			"PUT":    ResponseHandler(apiAdminBanPutHandler),
-			"DELETE": ResponseHandler(apiAdminBanDeleteHandler),
-		})
-		adminRouter.Handle("/roles/", handlers.MethodHandler{
-			"GET":  ResponseHandler(apiAdminRoleListHandler),
-			"POST": ResponseHandler(apiAdminRoleCreateHandler),
-		})
-		adminRouter.Handle("/roles/{id:[0-9]+}/", handlers.MethodHandler{
-			"PUT":    ResponseHandler(apiAdminRolePutHandler),
-			"DELETE": ResponseHandler(apiAdminRoleDeleteHandler),
-		})
-		adminRouter.Handle("/users/", handlers.MethodHandler{
-			"GET":  ResponseHandler(apiAdminUserListHandler),
-			"POST": ResponseHandler(apiAdminUserCreateHandler),
-		})
-		adminRouter.Handle("/users/{id:[0-9]+}/", handlers.MethodHandler{
-			"PUT":    ResponseHandler(apiAdminUserPutHandler),
-			"DELETE": ResponseHandler(apiAdminUserDeleteHandler),
-		})
-		adminRouter.Handle("/users/self/password/", handlers.MethodHandler{
-			"PUT": ResponseHandler(apiAdminUserSelfPasswordPutHandler),
-		})
+	if cfg.EnableAdminApi {
+		if database == nil {
+			log.Println("Not enabling admin API because of read-only mode")
+		} else {
+			log.Println("Enabling admin API")
+			adminRouter := router.PathPrefix("/admin").Subrouter()
+			adminRouter.Handle("/", handlers.MethodHandler{
+				"GET": ResponseHandler(apiAdminRootHandler),
+			})
+			adminRouter.Handle("/sessions/", handlers.MethodHandler{
+				"GET": ResponseHandler(apiAdminSessionListHandler),
+				"PUT": ResponseHandler(apiAdminSessionPutHandler),
+			})
+			adminRouter.Handle("/bans/", handlers.MethodHandler{
+				"GET":  ResponseHandler(apiAdminBanListHandler),
+				"POST": ResponseHandler(apiAdminBanCreateHandler),
+			})
+			adminRouter.Handle("/bans/{id:[0-9]+}/", handlers.MethodHandler{
+				"PUT":    ResponseHandler(apiAdminBanPutHandler),
+				"DELETE": ResponseHandler(apiAdminBanDeleteHandler),
+			})
+			adminRouter.Handle("/roles/", handlers.MethodHandler{
+				"GET":  ResponseHandler(apiAdminRoleListHandler),
+				"POST": ResponseHandler(apiAdminRoleCreateHandler),
+			})
+			adminRouter.Handle("/roles/{id:[0-9]+}/", handlers.MethodHandler{
+				"PUT":    ResponseHandler(apiAdminRolePutHandler),
+				"DELETE": ResponseHandler(apiAdminRoleDeleteHandler),
+			})
+			adminRouter.Handle("/users/", handlers.MethodHandler{
+				"GET":  ResponseHandler(apiAdminUserListHandler),
+				"POST": ResponseHandler(apiAdminUserCreateHandler),
+			})
+			adminRouter.Handle("/users/{id:[0-9]+}/", handlers.MethodHandler{
+				"PUT":    ResponseHandler(apiAdminUserPutHandler),
+				"DELETE": ResponseHandler(apiAdminUserDeleteHandler),
+			})
+			adminRouter.Handle("/users/self/password/", handlers.MethodHandler{
+				"PUT": ResponseHandler(apiAdminUserSelfPasswordPutHandler),
+			})
 
-		adminRouter.Use(handlers.CORS(
-			handlers.AllowedOrigins(cfg.AllowOrigins),
-			handlers.AllowedMethods([]string{
-				http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}),
-			handlers.AllowedHeaders([]string{"Authorization", "Content-Type"}),
-		))
+			adminRouter.Use(handlers.CORS(
+				handlers.AllowedOrigins(cfg.AllowOrigins),
+				handlers.AllowedMethods([]string{
+					http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}),
+				handlers.AllowedHeaders([]string{"Authorization", "Content-Type"}),
+			))
 
-		aam := adminAuthMiddleware{
-			adminUser: adminUser,
-			adminPass: adminPass,
+			aam := adminAuthMiddleware{
+				adminUser: adminUser,
+				adminPass: adminPass,
+			}
+			adminRouter.Use(aam.Middleware)
 		}
-		adminRouter.Use(aam.Middleware)
+	} else {
+		log.Println("Not enabling admin API")
 	}
 
 	var handler http.Handler = normalizeSlashesHandler(router)

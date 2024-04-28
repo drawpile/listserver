@@ -38,7 +38,7 @@ type Database interface {
 
 func InitDatabase(dbname string, sessionTimeout int) Database {
 	if len(dbname) == 0 {
-		log.Println("No datatabase used")
+		log.Println("No database given, running in read-only mode")
 		return nil
 	}
 
