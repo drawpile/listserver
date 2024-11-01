@@ -132,7 +132,7 @@ func sqliteInitDb(conn *sqlite.Conn) {
 		password_hash TEXT NOT NULL,
 		role INTEGER NOT NULL REFERENCES roles (id)
 		);`)
-	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (1), (2), (3);`)
+	sqliteExec(conn, `INSERT INTO migrations (version) VALUES (1), (2), (3), (4);`)
 }
 
 func sqliteMigrateFromLegacyFormat(conn *sqlite.Conn) {
