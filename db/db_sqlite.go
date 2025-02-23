@@ -255,15 +255,6 @@ func sqliteCleanupTask(db *sqliteDb) {
 	}
 }
 
-func sqliteJoinUsernames(usernames []string) string {
-	// TODO: usernames might contain a comma, so this could have collisions.
-	return strings.Join(usernames, ",")
-}
-
-func sqliteSplitUsernames(joinedUsernames string) []string {
-	return strings.Split(joinedUsernames, ",")
-}
-
 func (db *sqliteDb) SessionTimeoutMinutes() int {
 	return db.timeoutMinutes
 }
@@ -271,7 +262,7 @@ func (db *sqliteDb) SessionTimeoutMinutes() int {
 // Get a list of sessions that match the given query parameters
 func (db *sqliteDb) QuerySessionList(opts QueryOptions, ctx context.Context) ([]SessionInfo, error) {
 	querySql := `
-	SELECT host, port, session_id, protocol, title, users, usernames, password, nsfm, owner,
+	SELECT host, port, session_id, protocol, title, users, password, nsfm, owner,
 	started, max_users, closed, active_drawing_users, allow_web
 	FROM sessions
 	WHERE last_active >= DATETIME('now', $timeout) AND unlisted=false`
@@ -332,7 +323,7 @@ func (db *sqliteDb) QuerySessionList(opts QueryOptions, ctx context.Context) ([]
 			Protocol:           stmt.GetText("protocol"),
 			Title:              stmt.GetText("title"),
 			Users:              int(stmt.GetInt64("users")),
-			Usernames:          sqliteSplitUsernames(stmt.GetText("usernames")),
+			Usernames:          []string{},
 			Password:           stmt.GetInt64("password") != 0,
 			Nsfm:               stmt.GetInt64("nsfm") != 0,
 			Owner:              stmt.GetText("owner"),
@@ -449,7 +440,7 @@ func (db *sqliteDb) InsertSession(session SessionInfo, clientIp string, ctx cont
 	(host, port, session_id, protocol, title, users, usernames, password, nsfm,
 	owner, started, last_active, unlisted, update_key, client_ip, max_users,
 	closed, active_drawing_users, allow_web)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+	VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
 	CURRENT_TIMESTAMP, 0, ?, ?, ?, ?, ?, ?)
 	`)
 
@@ -460,7 +451,6 @@ func (db *sqliteDb) InsertSession(session SessionInfo, clientIp string, ctx cont
 	stmt.BindText(i(), session.Protocol)
 	stmt.BindText(i(), session.Title)
 	stmt.BindInt64(i(), int64(session.Users))
-	stmt.BindText(i(), sqliteJoinUsernames(session.Usernames))
 	stmt.BindBool(i(), session.Password)
 	stmt.BindBool(i(), session.Nsfm)
 	stmt.BindText(i(), session.Owner)
@@ -531,11 +521,6 @@ func (db *sqliteDb) RefreshSession(refreshFields map[string]interface{}, listing
 	if val, ok := optInt(refreshFields, "users"); ok {
 		querySql += ", users=?"
 		params = append(params, val)
-	}
-
-	if val, ok := optStringList(refreshFields, "usernames"); ok {
-		querySql += ", usernames=?"
-		params = append(params, strings.Join(val, ",")) // TODO
 	}
 
 	if val, ok := optBool(refreshFields, "password"); ok {
@@ -656,7 +641,7 @@ func (db *sqliteDb) AdminQuerySessions(ctx context.Context) ([]AdminSession, err
 	defer db.pool.Put(conn)
 
 	stmt := conn.Prep(`
-		SELECT id, host, port, session_id, protocol, title, users, usernames,
+		SELECT id, host, port, session_id, protocol, title, users,
 			password, nsfm, owner, started, last_active, unlisted, update_key,
 			client_ip, unlist_reason, max_users, closed,
 			last_active < DATETIME('now', $timeout) AS timed_out,
@@ -696,7 +681,7 @@ func (db *sqliteDb) AdminQuerySessions(ctx context.Context) ([]AdminSession, err
 			Protocol:           stmt.GetText("protocol"),
 			Title:              stmt.GetText("title"),
 			Users:              int(stmt.GetInt64("users")),
-			Usernames:          sqliteSplitUsernames(stmt.GetText("usernames")),
+			Usernames:          []string{},
 			Password:           stmt.GetInt64("password") != 0,
 			Nsfm:               stmt.GetInt64("nsfm") != 0,
 			Owner:              stmt.GetText("owner"),

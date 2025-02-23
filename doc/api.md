@@ -73,7 +73,7 @@ Returns (200 OK):
         "protocol": "protocol version",
         "title": "session title",
         "users": number of users,
-        "usernames": ["list of user names", ...],
+        "usernames": [] (always empty, removed feature),
         "password": true/false (is the session password protected),
         "nsfm": true/false (Not Suitable For Minors),
         "owner": "username",
@@ -86,7 +86,7 @@ Returns (200 OK):
 
 The `host`, `port` and `id` fields form a unique key.
 
-The username list may be empty. Password protected sessions will not typically list users.
+The username list is always empty, it's vestigial.
 
 The following query parameters can be used:
 
@@ -110,7 +110,6 @@ The request body:
         "owner": "username",
         "title": "session title",
         "users": user count,
-        "usernames": ["list of user names", ...],
         "password": boolean (is the session password protected),
         "nsfm": boolean,
         "private": boolean,
@@ -136,9 +135,6 @@ The `owner` field is the name of the user who started the session.
 The `nsfm` field is used to inform that the session will contain material not
 suitable for minors. The server may also implicitly apply the tag based on
 words appearing in the title.
-
-The `usernames` field contains a list of logged in users. This is an optional
-field. Typically only sessions open to public will provide it.
 
 Successful response (200 OK):
 
@@ -182,7 +178,6 @@ The request body:
     {
         "title": "new title",
         "users": new user count,
-        "usernames": ["user name list", ...],
         "password": is a password required (true/false),
         "owner": "session owner's name",
         "nsfm": true,
@@ -246,6 +241,10 @@ Returns 204 No Content on success.
 Returns the same errors as the Refresh call.
 
 ## History
+
+Version 1.8
+
+ * Made `usernames` field always empty, it was not used in practice
 
 Version 1.7
 
