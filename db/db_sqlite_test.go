@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"reflect"
 	"testing"
 )
 
@@ -80,6 +79,14 @@ func TestQueryList(t *testing.T) {
 		t.Fatal("Second item was not Test")
 	}
 
+	if len(sessions[0].Usernames) != 0 {
+		t.Fatal("First item usernames not empty")
+	}
+
+	if len(sessions[1].Usernames) != 0 {
+		t.Fatal("Second item usernames not empty")
+	}
+
 	// Filter by title
 	sessions, err = db.QuerySessionList(QueryOptions{Title: "Ex"}, context.TODO())
 	if err != nil {
@@ -128,8 +135,8 @@ func TestSessionRefreshing(t *testing.T) {
 		t.Fatal("User count did not change!")
 	}
 
-	if !reflect.DeepEqual(sessions[0].Usernames, []string{"a", "b"}) {
-		t.Fatal("Username list did not change!")
+	if len(sessions[0].Usernames) != 0 {
+		t.Fatal("Username list is not empty!")
 	}
 
 	if !sessions[0].Password {
