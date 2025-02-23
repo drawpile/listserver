@@ -535,25 +535,25 @@ func (db *sqliteDb) RefreshSession(refreshFields map[string]interface{}, listing
 	`
 	params = append(params, listingId, updateKey, db.timeoutString)
 
-	stmt := conn.Prep(querySql)
-	defer stmt.Reset()
+	updateStmt := conn.Prep(querySql)
+	defer updateStmt.Reset()
 	for i, v := range params {
 		switch val := v.(type) {
 		case string:
-			stmt.BindText(i+1, val)
+			updateStmt.BindText(i+1, val)
 		case int:
-			stmt.BindInt64(i+1, int64(val))
+			updateStmt.BindInt64(i+1, int64(val))
 		case int64:
-			stmt.BindInt64(i+1, val)
+			updateStmt.BindInt64(i+1, val)
 		case bool:
-			stmt.BindBool(i+1, val)
+			updateStmt.BindBool(i+1, val)
 		default:
 			panic("Unhandled type")
 		}
 	}
 
 	// Execute update
-	_, err := stmt.Step()
+	_, err := updateStmt.Step()
 	if err != nil {
 		return err
 	}
@@ -564,24 +564,23 @@ func (db *sqliteDb) RefreshSession(refreshFields map[string]interface{}, listing
 	}
 
 	// We didn't update anything, figure out what the error was.
-	stmt.Reset()
-	stmt = conn.Prep(`
+	selectStmt := conn.Prep(`
 		SELECT update_key, unlisted, unlist_reason
 		FROM sessions
 		WHERE id = $id
 	`)
+	defer selectStmt.Reset()
 
-	stmt.SetInt64("$id", listingId)
-	stmt.SetText("$timeout", db.timeoutString)
+	selectStmt.SetInt64("$id", listingId)
 
-	if hasRow, err := stmt.Step(); err != nil {
+	if hasRow, err := selectStmt.Step(); err != nil {
 		return err
 	} else if !hasRow {
 		return RefreshError{"no such session"}
-	} else if stmt.GetText("update_key") != updateKey {
+	} else if selectStmt.GetText("update_key") != updateKey {
 		return RefreshError{"invalid session key"}
-	} else if stmt.GetInt64("unlisted") != 0 {
-		reason := stmt.GetText("unlist_reason")
+	} else if selectStmt.GetInt64("unlisted") != 0 {
+		reason := selectStmt.GetText("unlist_reason")
 		if reason == "" {
 			return RefreshError{"already unlisted"}
 		} else {
