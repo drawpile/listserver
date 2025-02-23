@@ -479,36 +479,6 @@ func (db *sqliteDb) RefreshSession(refreshFields map[string]interface{}, listing
 	}
 	defer db.pool.Put(conn)
 
-	// First, make sure an active listing exists
-	stmt := conn.Prep(`
-		SELECT
-			update_key, unlisted, unlist_reason,
-			last_active < DATETIME('now', $timeout) as timed_out
-		FROM sessions
-		WHERE id = $id
-	`)
-	defer stmt.Reset()
-
-	stmt.SetInt64("$id", listingId)
-	stmt.SetText("$timeout", db.timeoutString)
-
-	if hasRow, err := stmt.Step(); err != nil {
-		return err
-	} else if !hasRow {
-		return RefreshError{"no such session"}
-	} else if stmt.GetText("update_key") != updateKey {
-		return RefreshError{"invalid session key"}
-	} else if stmt.GetInt64("unlisted") != 0 {
-		reason := stmt.GetText("unlist_reason")
-		if reason == "" {
-			return RefreshError{"already unlisted"}
-		} else {
-			return RefreshError{reason}
-		}
-	} else if stmt.GetInt64("timed_out") != 0 {
-		return RefreshError{"timed out"}
-	}
-
 	// Construct update query
 	querySql := "UPDATE sessions SET last_active=CURRENT_TIMESTAMP"
 	params := []interface{}{}
@@ -557,29 +527,69 @@ func (db *sqliteDb) RefreshSession(refreshFields map[string]interface{}, listing
 		params = append(params, val)
 	}
 
-	querySql += " WHERE id=?"
-	params = append(params, listingId)
+	querySql += `
+		WHERE id = ?
+		AND update_key = ?
+		AND COALESCE(unlist_reason, '') = ''
+		AND last_active >= DATETIME('now', ?)
+	`
+	params = append(params, listingId, updateKey, db.timeoutString)
 
-	stmt2 := conn.Prep(querySql)
-	defer stmt2.Reset()
+	stmt := conn.Prep(querySql)
+	defer stmt.Reset()
 	for i, v := range params {
 		switch val := v.(type) {
 		case string:
-			stmt2.BindText(i+1, val)
+			stmt.BindText(i+1, val)
 		case int:
-			stmt2.BindInt64(i+1, int64(val))
+			stmt.BindInt64(i+1, int64(val))
 		case int64:
-			stmt2.BindInt64(i+1, val)
+			stmt.BindInt64(i+1, val)
 		case bool:
-			stmt2.BindBool(i+1, val)
+			stmt.BindBool(i+1, val)
 		default:
 			panic("Unhandled type")
 		}
 	}
 
 	// Execute update
-	_, err := stmt2.Step()
-	return err
+	_, err := stmt.Step()
+	if err != nil {
+		return err
+	}
+
+	// If we actually executed an update, we're done
+	if conn.Changes() > 0 {
+		return nil
+	}
+
+	// We didn't update anything, figure out what the error was.
+	stmt.Reset()
+	stmt = conn.Prep(`
+		SELECT update_key, unlisted, unlist_reason
+		FROM sessions
+		WHERE id = $id
+	`)
+
+	stmt.SetInt64("$id", listingId)
+	stmt.SetText("$timeout", db.timeoutString)
+
+	if hasRow, err := stmt.Step(); err != nil {
+		return err
+	} else if !hasRow {
+		return RefreshError{"no such session"}
+	} else if stmt.GetText("update_key") != updateKey {
+		return RefreshError{"invalid session key"}
+	} else if stmt.GetInt64("unlisted") != 0 {
+		reason := stmt.GetText("unlist_reason")
+		if reason == "" {
+			return RefreshError{"already unlisted"}
+		} else {
+			return RefreshError{reason}
+		}
+	} else {
+		return RefreshError{"timed out"} // (Probably.)
+	}
 }
 
 // Delete an announcement
