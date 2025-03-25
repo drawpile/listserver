@@ -115,7 +115,7 @@ func fetchServerSessionList(urlString string, host string, port int) ([]db.Sessi
 	}
 
 	var listResponse []sessionServerResponse
-	if err = fetchJson(urlString+"/sessions/", &listResponse); err != nil {
+	if err = fetchJson(urlString+"/sessions/?listed=true", &listResponse); err != nil {
 		return nil, "", 0, err
 	}
 
